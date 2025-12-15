@@ -1,15 +1,16 @@
-pragma circom 2.1.0;
+pragma circom 2.0.0;
+
+include "circomlib/circuits/poseidon.circom";
 
 template OwnershipProof() {
+
     signal input secret;
     signal input commitment;
 
-    // commitment = Poseidon(secret)
-    signal computed;
+    component hash = Poseidon(1);
+    hash.inputs[0] <== secret;
 
-    computed <== Poseidon([secret]);
-
-    commitment === computed;
+    commitment === hash.out;
 }
 
 component main = OwnershipProof();

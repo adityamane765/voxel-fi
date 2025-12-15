@@ -1,23 +1,23 @@
-pragma circom 2.1.0;
+pragma circom 2.0.0;
 
-include "circomlib/circuits/comparators.circom";
+include "circomlib/circuits/bitify.circom";
 
-template RangeProof() {
+template RangeProof(nBits) {
     signal input value;
     signal input min;
     signal input max;
 
-    component gte = GreaterEqThan(64);
-    component lte = LessEqThan(64);
+    signal diffMin;
+    diffMin <== value - min;
 
-    gte.in[0] <== value;
-    gte.in[1] <== min;
+    component diffMinBits = Num2Bits(nBits);
+    diffMinBits.in <== diffMin;
 
-    lte.in[0] <== value;
-    lte.in[1] <== max;
+    signal diffMax;
+    diffMax <== max - value;
 
-    gte.out === 1;
-    lte.out === 1;
+    component diffMaxBits = Num2Bits(nBits);
+    diffMaxBits.in <== diffMax;
 }
 
-component main = RangeProof();
+component main = RangeProof(32);
