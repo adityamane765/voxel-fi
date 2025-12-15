@@ -1,7 +1,6 @@
 module fractal_tree::zk_verifier {
 
     use std::signer;
-    use std::vector;
     use std::error;
 
     /// Error codes
@@ -53,7 +52,7 @@ module fractal_tree::zk_verifier {
     ///   - commitment exists
     ///   - proof was verified
     ///   - proof cannot be replayed
-    public fun verify_proof(
+    public entry fun verify_proof(
         owner_addr: address,
         proof_verified: bool,
         nullifier_owner: &signer,

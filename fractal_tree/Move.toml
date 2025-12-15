@@ -4,12 +4,14 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-fractal_tree = "_"
+fractal_tree = "0x237c534771bd2790ae97480b03a19274ee8a296666055f2bef1fd5cb8ecd00a8"
 
-[dev-addresses]
-fractal_tree = "0xCAFE"
+[dependencies.AptosFramework]
+git = "https://github.com/movementlabsxyz/aptos-core.git"
+rev = "movement"
+subdir = "aptos-move/framework/aptos-framework"
 
-[dependencies]
-AptosFramework = { git = "https://github.com/movementlabsxyz/aptos-core.git", rev = "movement", subdir = "aptos-move/framework/aptos-framework" }
-
-[dev-dependencies]
+[dependencies.MoveStdlib]
+git = "https://github.com/movementlabsxyz/aptos-core.git"
+rev = "movement"
+subdir = "aptos-move/framework/move-stdlib"
