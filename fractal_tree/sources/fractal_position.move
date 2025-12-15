@@ -10,10 +10,11 @@ module fractal_tree::fractal_position {
     const E_INVALID_PARAMS: u64 = 2;
 
     /// Supported fractal types (MVP)
-    /// 0 = Binary decay
-    /// 1 = Fibonacci-like decay
     const FRACTAL_BINARY: u8 = 0;
     const FRACTAL_FIBONACCI: u8 = 1;
+    const FRACTAL_LINEAR: u8 = 2;
+    const FRACTAL_EXPONENTIAL: u8 = 3;
+    const FRACTAL_CANTOR: u8 = 4;
 
     /// A single fractal LP position
     /// This does NOT store ranges — only rules
@@ -56,7 +57,7 @@ module fractal_tree::fractal_position {
         assert!(spread > 0, error::invalid_argument(E_INVALID_PARAMS));
         assert!(depth > 0 && depth <= 8, error::invalid_argument(E_INVALID_PARAMS));
         assert!(
-            fractal_type == FRACTAL_BINARY || fractal_type == FRACTAL_FIBONACCI,
+            fractal_type <= FRACTAL_CANTOR,
             error::invalid_argument(E_INVALID_PARAMS)
         );
 
@@ -115,8 +116,14 @@ module fractal_tree::fractal_position {
         // Apply fractal decay
         if (position.fractal_type == FRACTAL_BINARY) {
             binary_decay(position.total_liquidity, normalized, position.depth)
-        } else {
+        } else if (position.fractal_type == FRACTAL_FIBONACCI) {
             fibonacci_decay(position.total_liquidity, normalized, position.depth)
+        } else if (position.fractal_type == FRACTAL_LINEAR) {
+            linear_decay(position.total_liquidity, normalized)
+        } else if (position.fractal_type == FRACTAL_EXPONENTIAL) {
+            exponential_decay(position.total_liquidity, normalized)
+        } else {
+            cantor_decay(position.total_liquidity, normalized, position.depth)
         }
     }
 
@@ -136,6 +143,46 @@ module fractal_tree::fractal_position {
         };
 
         total >> (capped_u64 as u8)
+    }
+
+    /// Linear decay: liquidity decreases uniformly with distance
+    fun linear_decay(
+        total: u64,
+        normalized_distance: u64,
+    ): u64 {
+        if (normalized_distance >= 100) {
+            0
+        } else {
+            total * (100 - normalized_distance) / 100
+        }
+    }
+
+    /// Exponential decay: fast drop-off for tail hedging
+    fun exponential_decay(
+        total: u64,
+        normalized_distance: u64,
+    ): u64 {
+        if (normalized_distance >= 100) {
+            0
+        } else {
+            // approximate exp decay: (0.9 ^ distance)
+            let factor = 100 - (normalized_distance * 9 / 10);
+            total * factor / 100
+        }
+    }
+
+    /// Cantor-like decay: liquidity only at discrete bands
+    fun cantor_decay(
+        total: u64,
+        normalized_distance: u64,
+        depth: u8,
+    ): u64 {
+        let band = normalized_distance / (100 / (depth as u64));
+        if (band % 2 == 0) {
+            total / (band + 1)
+        } else {
+            0
+        }
     }
 
     /// Fibonacci-like decay (approximate golden ratio decay)
@@ -160,7 +207,6 @@ module fractal_tree::fractal_position {
             liquidity = liquidity * 618 / 1000; // ~0.618
             i = i + 1;
         };
-
         liquidity
     }
 }
