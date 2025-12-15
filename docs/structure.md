@@ -1,3 +1,5 @@
+```text
+Architecture:
 ┌──────────────────────────────┐
 │        Frontend (React)      │
 │  - LP Dashboard              │
@@ -27,3 +29,4 @@
 │  spatial_octree.move                     │
 │  zk_verifier.move                        │
 └──────────────────────────────────────────┘
+```
