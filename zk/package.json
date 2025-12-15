@@ -13,6 +13,7 @@
     "@aptos-labs/ts-sdk": "^5.2.0",
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
+    "got": "^11.8.6",
     "snarkjs": "^0.7.5"
   },
   "devDependencies": {

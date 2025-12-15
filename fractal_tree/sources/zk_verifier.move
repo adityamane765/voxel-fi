@@ -22,7 +22,7 @@ module fractal_tree::zk_verifier {
 
     /// Store a ZK commitment for a position
     /// Called after minting a fractal position
-    public fun commit_position(
+    public entry fun commit_position(
         owner: &signer,
         commitment_hash: vector<u8>,
     ) {
@@ -52,29 +52,24 @@ module fractal_tree::zk_verifier {
     ///   - commitment exists
     ///   - proof was verified
     ///   - proof cannot be replayed
+
     public entry fun verify_proof(
+        user: &signer,
         owner_addr: address,
         proof_verified: bool,
-        nullifier_owner: &signer,
     ) acquires Commitment {
 
-        // Commitment must exist
         let _commitment = borrow_global<Commitment>(owner_addr);
 
-        // Off-chain verifier attests correctness
         assert!(proof_verified, error::invalid_argument(E_INVALID_PROOF));
 
-        let nullifier_addr = signer::address_of(nullifier_owner);
+        let user_addr = signer::address_of(user);
 
-        // Prevent proof replay
         assert!(
-            !exists<Nullifier>(nullifier_addr),
+            !exists<Nullifier>(user_addr),
             error::invalid_state(E_NULLIFIER_USED)
         );
 
-        move_to(
-            nullifier_owner,
-            Nullifier { used: true }
-        );
+        move_to(user, Nullifier { used: true });
     }
 }
