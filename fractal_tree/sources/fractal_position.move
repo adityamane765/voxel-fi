@@ -2,8 +2,8 @@ module fractal_tree::fractal_position {
 
     use std::signer;
     use std::error;
-
     use fractal_tree::vault;
+    use fractal_tree::spatial_octree;
 
     /// Error codes
     const E_NOT_OWNER: u64 = 1;
@@ -41,7 +41,7 @@ module fractal_tree::fractal_position {
     }
 
     /// Mint a new fractal LP position
-    /// Liquidity is deposited into the Vault
+    /// Liquidity is deposited into the Vault and indexed in the octree
     public fun mint_position(
         owner: &signer,
         vault_admin: address,
@@ -68,8 +68,7 @@ module fractal_tree::fractal_position {
         let position_id = counter.next_id;
         counter.next_id = counter.next_id + 1;
 
-        // Deposit liquidity into the vault
-        // (modeled as X-only for MVP)
+        // Deposit liquidity into the vault (X-only for MVP)
         vault::deposit(
             vault_admin,
             total_liquidity,
@@ -77,6 +76,20 @@ module fractal_tree::fractal_position {
             owner
         );
 
+        // --- Spatial octree wiring (MVP) ---
+        let price_bucket = (price_center / 10) as u16;
+        let vol_bucket = depth;
+        let depth_bucket = depth;
+
+        spatial_octree::insert(
+            vault_admin,
+            price_bucket,
+            vol_bucket,
+            depth_bucket,
+            total_liquidity
+        );
+
+        // Store the fractal position
         move_to(
             owner,
             FractalPosition {
