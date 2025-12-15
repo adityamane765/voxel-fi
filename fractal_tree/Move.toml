@@ -1,0 +1,15 @@
+[package]
+name = "fractal_tree"
+version = "1.0.0"
+authors = []
+
+[addresses]
+fractal_tree = "_"
+
+[dev-addresses]
+fractal_tree = "0xCAFE"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/movementlabsxyz/aptos-core.git", rev = "movement", subdir = "aptos-move/framework/aptos-framework" }
+
+[dev-dependencies]
