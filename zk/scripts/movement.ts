@@ -1,7 +1,7 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
 export const MODULE_ADDRESS =
-  "0xd074036289078d10cd2e4042d3013e6c5c5c8edad74896ecb4f317d6a5d56789";
+  "0x4e2e65c099323ccc865047636f9b418554ef9e5443db68571910b3f9567cb3c0";
 
 const config = new AptosConfig({
   fullnode: "https://testnet.movementnetwork.xyz/v1",
