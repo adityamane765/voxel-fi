@@ -1,22 +1,45 @@
-// Off-chain ZK proof generation
+import * as snarkjs from "snarkjs";
+import * as path from "path";
+import { buildPoseidon } from "circomlibjs";
 
 export type ZkProof = {
-  proof: Uint8Array;
-  publicInputs: Uint8Array;
+  proof: any;
+  publicSignals: any;
 };
 
-export async function generateProof(
-  secret: string,
-  positionId: number
-): Promise<ZkProof> {
-  const encoder = new TextEncoder();
+export async function generateProof(input: {
+  secret: string | number;
+}): Promise<ZkProof> {
+  const wasmPath = path.join(__dirname, "ownership.wasm");
+  const zkeyPath = path.join(__dirname, "ownership.zkey");
 
-  // placeholder logic – replace with real circuit call later
-  const proof = encoder.encode(`proof:${secret}:${positionId}`);
-  const publicInputs = encoder.encode(`public:${positionId}`);
+  let secretBigInt: bigint;
+  if (typeof input.secret === "string") {
+    secretBigInt = BigInt(
+      "0x" + Buffer.from(input.secret)
+        .toString("hex")
+        .slice(0, 20)
+    );
+  } else {
+    secretBigInt = BigInt(input.secret);
+  }
 
-  return {
-    proof,
-    publicInputs,
+  // Calculate the Poseidon hash commitment
+  const poseidon = await buildPoseidon();
+  const commitment = poseidon.F.toString(poseidon([secretBigInt]));
+
+  const witness = {
+    secret: secretBigInt.toString(),
+    commitment: commitment,
   };
+
+  console.log("Witness:", witness);
+
+  const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+    witness,
+    wasmPath,
+    zkeyPath
+  );
+
+  return { proof, publicSignals };
 }

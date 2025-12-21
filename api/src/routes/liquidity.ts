@@ -1,29 +1,48 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { liquidityAtPrice } from "../aptos/views.js";
 import { aptos } from "../aptos/client.js";
 
 export const liquidityRouter = Router();
 
-liquidityRouter.get("/", async (req, res) => {
+liquidityRouter.get("/", async (req: Request, res: Response) => {
   try {
     const { owner, positionId, price } = req.query;
 
-    if (!owner || !positionId || !price) {
+    // Validate query parameters exist and are strings
+    if (
+      typeof owner !== "string" ||
+      typeof positionId !== "string" ||
+      typeof price !== "string"
+    ) {
       return res.status(400).json({
-        error: "Missing owner, positionId, or price",
+        error: "Missing or invalid owner, positionId, or price parameters",
       });
     }
 
-    const result = await liquidityAtPrice(
+    // Validate numeric conversions
+    const positionIdNum = Number(positionId);
+    const priceNum = Number(price);
+
+    if (isNaN(positionIdNum) || isNaN(priceNum)) {
+      return res.status(400).json({
+        error: "positionId and price must be valid numbers",
+      });
+    }
+
+    // liquidityAtPrice returns a number directly, not an array
+    const liquidity = await liquidityAtPrice(
       aptos,
-      owner as string,
-      Number(positionId),
-      Number(price)
+      owner,
+      positionIdNum,
+      priceNum
     );
 
-    res.json({ liquidity: result[0] });
+    res.json({ liquidity });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch liquidity" });
+    console.error("Liquidity fetch error:", err);
+    res.status(500).json({
+      error: "Failed to fetch liquidity",
+      details: err instanceof Error ? err.message : "Unknown error",
+    });
   }
 });

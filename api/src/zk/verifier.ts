@@ -1,10 +1,20 @@
-import { proveOwnership } from "../../../zk/handler/index";
+import * as snarkjs from "snarkjs";
+import * as fs from "fs";
+import * as path from "path";
+
+const VK_PATH = path.join(__dirname, "ownership_vk.json");
 
 export async function verifyProof(
-  proof: unknown,
-  positionId: number,
-  owner: string
+  proof: any,
+  publicSignals: any
 ): Promise<boolean> {
-  // placeholder — replace with real logic
-  return true;
+  const vKey = JSON.parse(
+    fs.readFileSync(VK_PATH, "utf-8")
+  );
+
+  return snarkjs.groth16.verify(
+    vKey,
+    publicSignals,
+    proof
+  );
 }

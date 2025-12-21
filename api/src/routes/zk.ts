@@ -1,45 +1,62 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { generateProof } from "../zk/prover.js";
 import { verifyProof } from "../zk/verifier.js";
 
 export const zkRouter = Router();
 
-/**
- * Generate a ZK proof (off-chain)
- */
-zkRouter.post("/prove", async (req, res) => {
+zkRouter.post("/prove", async (req: Request, res: Response) => {
   try {
-    const { secret, positionId } = req.body;
-
-    if (!secret || typeof positionId !== "number") {
-      return res.status(400).json({ error: "Invalid input" });
-    }
-
-    const proof = await generateProof(secret, positionId);
-
+    console.log("=== ZK Prove Request ===");
+    console.log("Request body:", req.body);
+    
+    const proof = await generateProof(req.body);
+    
+    console.log("✓ Proof generated successfully");
+    console.log("Proof:", proof);
+    
     res.json(proof);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to generate proof" });
+  } catch (e) {
+    console.error("=== Proof Generation Error ===");
+    console.error("Error:", e);
+    console.error("Stack:", e instanceof Error ? e.stack : "No stack");
+    console.error("Message:", e instanceof Error ? e.message : String(e));
+    
+    res.status(500).json({ 
+      error: "Proof generation failed",
+      details: e instanceof Error ? e.message : String(e)
+    });
   }
 });
 
-/**
- * Verify a ZK proof (off-chain + on-chain hook later)
- */
-zkRouter.post("/verify", async (req, res) => {
+zkRouter.post("/verify", async (req: Request, res: Response) => {
   try {
-    const { proof, positionId, owner } = req.body;
-
-    if (!proof || typeof positionId !== "number" || !owner) {
-      return res.status(400).json({ error: "Invalid input" });
+    console.log("=== ZK Verify Request ===");
+    console.log("Request body:", req.body);
+    
+    const { proof, publicSignals } = req.body;
+    
+    if (!proof || !publicSignals) {
+      console.error("❌ Missing proof or publicSignals");
+      return res.status(400).json({ 
+        verified: false,
+        error: "Missing proof or publicSignals" 
+      });
     }
-
-    const ok = await verifyProof(proof, positionId, owner);
-
+    
+    const ok = await verifyProof(proof, publicSignals);
+    
+    console.log("✓ Verification result:", ok);
+    
     res.json({ verified: ok });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Verification failed" });
+  } catch (e) {
+    console.error("=== Verification Error ===");
+    console.error("Error:", e);
+    console.error("Stack:", e instanceof Error ? e.stack : "No stack");
+    console.error("Message:", e instanceof Error ? e.message : String(e));
+    
+    res.status(500).json({ 
+      verified: false,
+      error: e instanceof Error ? e.message : String(e)
+    });
   }
 });

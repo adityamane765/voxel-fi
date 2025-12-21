@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-PROFILE=fractal8
-MODULE_ADDR=0x4e2e65c099323ccc865047636f9b418554ef9e5443db68571910b3f9567cb3c0
+PROFILE=fractal-testnet
+MODULE_ADDR=0x43f0581028053bb1b1a738c34637203ff015fac6683592ef781722d8e40449e3
 
 echo "=============================="
 echo " Burn Position Test"

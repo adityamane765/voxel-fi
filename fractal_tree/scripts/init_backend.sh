@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-PROFILE=fractal8
-PKG_ADDR=0x4e2e65c099323ccc865047636f9b418554ef9e5443db68571910b3f9567cb3c0
+PROFILE=fractal-testnet
+PKG_ADDR=0x43f0581028053bb1b1a738c34637203ff015fac6683592ef781722d8e40449e3
 COIN_X=0x1::aptos_coin::AptosCoin
 COIN_Y=0x1::aptos_coin::AptosCoin
 
