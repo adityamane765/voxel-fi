@@ -276,17 +276,6 @@ VoxelFi offers pre-built fractal strategies optimized for different market condi
 - $20B in concentrated liquidity protocols
 - $5B institutional DeFi participation (growing 300% YoY)
 
-**VoxelFi Target:**
-- Year 1: $10M TVL (0.01% market share)
-- Year 2: $100M TVL (institutional adoption)
-- Year 3: $1B TVL (become standard for private liquidity)
-
-**Revenue Model:**
-- 0.05% protocol fee on all swaps through fractal positions
-- Premium fractal templates (subscription)
-- Institutional API access
-- White-label licensing
-
 ---
 
 ## 🏆 Why VoxelFi?
