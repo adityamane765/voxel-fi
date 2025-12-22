@@ -1,6 +1,10 @@
 import * as snarkjs from "snarkjs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 import { buildPoseidon } from "circomlibjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export type ZkProof = {
   proof: any;

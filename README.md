@@ -43,73 +43,65 @@ VoxelFi flips the script with **private fractal liquidity**:
 
 ---
 
-## 🧠 What are Fractal Liquidity Curves?
+## 🏗️ Project Structure
 
-Traditional AMMs force you to choose ONE price range. Want full coverage? Deploy 100+ positions and pay massive gas.
-
-VoxelFi uses **fractal mathematics** instead:
-
-**Traditional Multi-Range LP:**
 ```
-Position 1:  |████|          (gas: 200K)
-Position 2:      |████|      (gas: 200K)
-Position 3:          |████|  (gas: 200K)
-...
-Position 100:            |████| (gas: 200K)
-
-Total: 20M gas = $300 on Ethereum
+voxel-fi/
+├── src/                    # Frontend (React + TypeScript + Vite)
+│   ├── components/         # UI components
+│   ├── services/           # API & blockchain services
+│   ├── context/            # Wallet context
+│   ├── hooks/              # Custom React hooks
+│   └── config/             # Configuration
+├── api/                    # Express.js Backend
+│   ├── src/
+│   │   ├── routes/         # API endpoints
+│   │   ├── aptos/          # Movement Network client
+│   │   └── zk/             # ZK proof generation
+│   └── package.json
+├── fractal_tree/           # Move Smart Contracts
+│   ├── sources/
+│   │   ├── fractal_position.move
+│   │   ├── vault.move
+│   │   └── zk_verifier.move
+│   └── Move.toml
+├── zk/                     # Zero-Knowledge Circuits
+│   ├── circuits/           # Circom circuits
+│   ├── handler/            # Proof generation handlers
+│   └── build_*/            # Compiled circuits
+└── docs/                   # Documentation
 ```
-
-**VoxelFi Fractal LP:**
-```
-One Position: ░░▒▒▓▓████▓▓▒▒░░
-              $1500      $2500
-              
-Infinite ranges, one transaction
-Total: 80K gas = $1.20 on Movement
-```
-
-**How it works:**
-- Same pattern repeats at every scale (self-similar)
-- Store the formula, not individual ranges
-- Liquidity computed on-demand from mathematical curve
-- 256 bytes stores infinite positions
 
 ---
 
-## 🔐 Privacy Architecture
+## 🚀 Quick Start
 
-**Traditional AMM:**
-```
-On-chain: "Alice provides 1000 USDC at price $1850-$1950"
-Result: Everyone copies Alice's strategy
-```
-
-**VoxelFi:**
-```
-On-chain: "Commitment hash: 0x7a3f9e..."
-Local only: Alice's actual parameters (center, spread, depth)
-Result: Competitors see liquidity but can't reverse-engineer strategy
+### Frontend (Development)
+```bash
+npm install
+npm run dev
 ```
 
-**Privacy Flow:**
-1. **Local Setup** — Define parameters in browser (never sent anywhere)
-2. **ZK Proof** — Generate cryptographic proof "my parameters are valid" (2 seconds)
-3. **On-Chain Commit** — Submit hash + proof to smart contract
-4. **Verification** — Contract verifies proof without seeing parameters
-5. **Private LP Active** — Earning fees, strategy hidden forever
+### Backend API
+```bash
+cd api
+npm install
+npm run dev
+```
 
-**What's on-chain:**
-- ✅ Commitment hash (meaningless without secret)
-- ✅ Total liquidity amount
-- ✅ ZK proof (verifiable but reveals nothing)
+### Environment Variables
+```
+# Frontend
+VITE_PRIVY_APP_ID=your_privy_app_id
+VITE_MOVEMENT_RPC_URL=https://testnet.movementnetwork.xyz/v1
+VITE_MOVEMENT_CHAIN_ID=250
+VITE_MODULE_ADDRESS=your_module_address
+VITE_API_URL=http://localhost:8080
 
-**What stays private:**
-- 🔒 Price center
-- 🔒 Spread width
-- 🔒 Fractal type
-- 🔒 Recursion depth
-- 🔒 Your entire strategy
+# Backend
+MOVEMENT_RPC=https://testnet.movementnetwork.xyz/v1
+MODULE_ADDRESS=your_module_address
+```
 
 ---
 
@@ -140,31 +132,20 @@ Result: Competitors see liquidity but can't reverse-engineer strategy
 
 ## 🎨 Fractal Types
 
-VoxelFi offers pre-built fractal strategies optimized for different market conditions:
-
 ### 📊 Market Maker (Fibonacci)
 - Golden ratio decay (61.8% per level)
 - Dense liquidity at current price
-- Smooth taper to edges
 - **Best for:** Stable pairs, high-volume trading
 
 ### 🌊 Volatility Hedge (Cantor Dust)  
 - Sparse at center, dense at extremes
 - Captures flash crashes and pumps
-- Tail-risk protection
 - **Best for:** Volatile assets, black swan coverage
 
 ### ⚡ High-Frequency (Mandelbrot)
 - Chaotic attractor pattern
 - Multiple liquidity hotspots
-- Adapts to price action
 - **Best for:** Algo traders, MEV extractors
-
-### 🎯 Custom
-- Define your own fractal parameters
-- Experiment with novel curves
-- Backtest against historical data (post hackathon plan)
-- **Best for:** Quant funds, researchers
 
 ---
 
@@ -179,39 +160,17 @@ VoxelFi offers pre-built fractal strategies optimized for different market condi
 - Proves fractal parameters are valid
 - Proves liquidity amount matches deposit
 - Proves user owns position (for withdrawals)
-- No trusted setup required
 
-**Frontend (Using Replit AI + Privy)**
+**Frontend (React + Vite + Privy)**
 - Embedded wallet integration
 - Real-time fractal visualization
 - ZK proof generation in browser
 - Position management dashboard
 
-**All infrastructure runs on Movement M1 testnet.**
-
----
-
-## 🎯 Use Cases
-
-### 🏦 Institutional Liquidity Providers
-**Problem:** Hedge funds can't deploy millions publicly—competitors front-run every move.  
-**Solution:** VoxelFi lets institutions provide liquidity privately while proving compliance with ZK proofs.
-
-### 🤖 MEV-Resistant Trading
-**Problem:** Public LP positions are sandwich-bot honeypots.  
-**Solution:** Bots can't calculate optimal attack because your parameters are hidden.
-
-### 📊 Quantitative Funds  
-**Problem:** Proprietary pricing models leak alpha when deployed on-chain.  
-**Solution:** Keep your curve secret, earn fees without revealing your edge.
-
-### 🔒 Privacy Advocates
-**Problem:** Every DeFi move tracked, analyzed, copied.  
-**Solution:** Transact privately while staying fully on-chain and verifiable.
-
-### 🧪 DeFi Researchers
-**Problem:** Can't experiment with novel AMM curves—everything public.  
-**Solution:** Test experimental fractals without tipping off the market.
+**Backend API (Express.js)**
+- Position queries and management
+- Liquidity calculations
+- ZK proof coordination
 
 ---
 
@@ -221,15 +180,11 @@ VoxelFi offers pre-built fractal strategies optimized for different market condi
 - **Move Language** — Formal verification prevents exploits
 - **Sub-$0.001 Fees** — Makes complex fractal math economical  
 - **2-Second Finality** — Fast enough for active trading
-- **EVM Compatible**
 
 ### Privy Integration
 - **No Seed Phrases** — 80% of users lose/forget them
 - **Social Login** — Email, Google, Twitter, GitHub
 - **Embedded Wallets** — Sign transactions without popups
-- **User-Owned** — Full export/recovery capabilities
-
-**Together:** The first DeFi that feels like using Robinhood, but you actually own your assets.**
 
 ---
 
@@ -242,61 +197,6 @@ VoxelFi offers pre-built fractal strategies optimized for different market condi
 | Gas per position | 200K | 150K | **80K** |
 | Onboarding UX | Metamask | Metamask | **Email login** |
 | Capital efficiency | Medium | High | **Extreme** |
-| Strategy protection | ❌ | ❌ | ✅ **Hidden** |
-
----
-
-## 🗺️ Roadmap
-
-### ✅ Now: Hackathon MVP
-- Fractal position manager (binary tree type)
-- Basic ZK privacy (commitment scheme)
-- Multiple fractal types (Fibonacci, Mandelbrot, etc.)
-- Privy wallet integration
-- 3D visualization
-- 3D octree spatial indexing (price × time × volatility)
-
-### Post hackathon:
-- Auto-rebalancing based on market conditions
-- Cross-chain aggregation (Movement + Ethereum + Arbitrum)
-- Institutional API and trading terminal
-- Public SDK for developers
-- Integration with major DEXs
-- Governance token launch
-- Community-designed fractals
-- LP strategy marketplace
-- DAO treasury management
-
----
-
-## 💰 Market Opportunity
-
-**Total Addressable Market:**
-- $100B locked in AMMs globally
-- $20B in concentrated liquidity protocols
-- $5B institutional DeFi participation (growing 300% YoY)
-
----
-
-## 🏆 Why VoxelFi?
-
-**For LPs:**
-- 📈 Higher capital efficiency (earn more fees per dollar)
-- 🔒 Strategy protection (no more copycats)
-- ⚡ Gas savings (100x cheaper than multi-range)
-- 🎯 Better UX (email login, no seed phrases)
-
-**For Traders:**
-- 💧 Deeper liquidity (more LPs = tighter spreads)
-- 🤖 Less MEV (hidden parameters = less exploitation)
-- 🚀 Faster execution (Movement's speed)
-- 💰 Lower fees (protocol efficiency)
-
-**For Movement Ecosystem:**
-- 🧲 Attracts institutional capital (privacy = requirement)
-- 🛠️ Showcases Move's capabilities (complex math on-chain)
-- 👥 Grows user base (Privy onboards non-crypto natives)
-- 🏗️ Protocol infra (others build on VoxelFi)
 
 ---
 
