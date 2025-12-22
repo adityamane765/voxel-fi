@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign, Percent, Clock, BarChart3 } from 'lucide-react';
+import { DollarSign, Percent, Clock, BarChart3 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar, LineChart, Line } from 'recharts';
 
 export default function Analytics() {

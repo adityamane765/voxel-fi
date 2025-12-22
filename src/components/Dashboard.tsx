@@ -27,7 +27,7 @@ const fractalTypeNames: Record<number, string> = {
 };
 
 export default function Dashboard({ setCurrentPage }: DashboardProps) {
-  const { authenticated, address, login, isConfigured } = useWallet();
+  const { authenticated, address, login, ready } = useWallet();
   const [positions, setPositions] = useState<PositionDisplay[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +146,7 @@ export default function Dashboard({ setCurrentPage }: DashboardProps) {
             )}
           </div>
           <div className="flex items-center gap-4">
-            {!authenticated && isConfigured && (
+            {!authenticated && ready && (
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

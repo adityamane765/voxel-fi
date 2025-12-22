@@ -14,7 +14,7 @@ const fractalTypeMap: Record<string, number> = {
 };
 
 export default function PositionCreator() {
-  const { authenticated, address, login, isConfigured } = useWallet();
+  const { authenticated, address, login, ready } = useWallet();
   
   const [centerPrice, setCenterPrice] = useState(2000);
   const [spread, setSpread] = useState(500);
@@ -306,7 +306,7 @@ export default function PositionCreator() {
               transition={{ delay: 0.6 }}
               className="space-y-3"
             >
-              {!authenticated && isConfigured && (
+              {!authenticated && ready && (
                 <motion.button
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
