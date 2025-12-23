@@ -11,8 +11,7 @@ export default function LandingPage({ setCurrentPage }: LandingPageProps) {
   const features = [
     'Zero-Knowledge Proofs', 
     'Fractal Liquidity Curves',
-    'Movement Network',
-    'Privacy Preserving',
+    'Movement Network'
   ];
 
   const whyCards = [
