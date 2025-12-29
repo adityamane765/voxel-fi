@@ -26,6 +26,9 @@ export function PrivyProvider({ children }: Props) {
           ethereum: {
             createOnLogin: 'users-without-wallets',
           },
+          aptos: {
+            createOnLogin: 'users-without-wallets',
+          },
         },
       }}
     >

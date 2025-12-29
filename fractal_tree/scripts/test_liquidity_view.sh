@@ -1,45 +1,51 @@
 #!/bin/bash
 set -e
 
-PROFILE=fractal-testnet
-MODULE=0x43f0581028053bb1b1a738c34637203ff015fac6683592ef781722d8e40449e3
-OWNER=$MODULE
-POSITION_ID=1
+# Import common configuration
+source "$(dirname "$0")/common_config.sh"
+
+TOKEN_OBJECT_ADDRESS=$1
+
+if [ -z "$TOKEN_OBJECT_ADDRESS" ]; then
+  echo "Usage: $0 <NFT_OBJECT_ADDRESS>"
+  exit 1
+fi
 
 echo "=============================="
 echo " Liquidity View Test"
 echo " Profile: $PROFILE"
-echo " Module:  $MODULE"
+echo " Module:  $MODULE_ADDRESS"
+echo " NFT Address: $TOKEN_OBJECT_ADDRESS"
 echo "=============================="
 
-echo "→ Price at center (should be full liquidity)..."
+echo "→ Price at center (e.g., 3000):"
 movement move view \
   --profile $PROFILE \
-  --function-id $MODULE::fractal_position::liquidity_at_price \
+  --function-id ${MODULE_ADDRESS}::fractal_position::liquidity_at_price \
   --args \
-    address:$OWNER \
-    u64:$POSITION_ID \
-    u64:1000
+    address:$TOKEN_OBJECT_ADDRESS \
+    u64:3000 \
+  --assume-yes
 
 echo
-echo "→ Price slightly off-center..."
+echo "→ Price slightly off-center (e.g., 3050):"
 movement move view \
   --profile $PROFILE \
-  --function-id $MODULE::fractal_position::liquidity_at_price \
+  --function-id ${MODULE_ADDRESS}::fractal_position::liquidity_at_price \
   --args \
-    address:$OWNER \
-    u64:$POSITION_ID \
-    u64:1050
+    address:$TOKEN_OBJECT_ADDRESS \
+    u64:3050 \
+  --assume-yes
 
 echo
-echo "→ Price outside spread (should be 0)..."
+echo "→ Price outside spread (e.g., 3500):"
 movement move view \
   --profile $PROFILE \
-  --function-id $MODULE::fractal_position::liquidity_at_price \
+  --function-id ${MODULE_ADDRESS}::fractal_position::liquidity_at_price \
   --args \
-    address:$OWNER \
-    u64:$POSITION_ID \
-    u64:2000
+    address:$TOKEN_OBJECT_ADDRESS \
+    u64:3500 \
+  --assume-yes
 
 echo
 echo "✅ Liquidity view test completed"

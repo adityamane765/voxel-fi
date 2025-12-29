@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Zap, Loader2, Check, EyeOff, Eye, AlertCircle, Wallet } from 'lucide-react';
+import { useWallets, useSendTransaction } from '@privy-io/react-auth';
 import FractalVisualizer from './FractalVisualizer';
 import { useWallet } from '../hooks/useWallet';
 import { zkService } from '../services/api';
 import { fractalPositionService } from '../services/aptos';
+import { config } from '../config';
+import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
+import { normalizeAptosAddress } from '../utils/address';
 
 const fractalTypeMap: Record<string, number> = {
   fibonacci: 1,
@@ -14,7 +18,17 @@ const fractalTypeMap: Record<string, number> = {
 };
 
 export default function PositionCreator() {
-  const { authenticated, address, login, ready } = useWallet();
+  const aptos = useMemo(() => {
+    const aptosConfig = new AptosConfig({
+      network: Network.CUSTOM,
+      fullnode: config.movement.rpc,
+    });
+    return new Aptos(aptosConfig);
+  }, []);
+
+  const { authenticated, login } = useWallet();
+  const { wallets, ready: walletsReady } = useWallets();
+  const { sendTransaction } = useSendTransaction();
   
   const [centerPrice, setCenterPrice] = useState(2000);
   const [spread, setSpread] = useState(500);
@@ -83,7 +97,7 @@ export default function PositionCreator() {
   };
 
   const handleDeploy = async () => {
-    if (!authenticated || !address) {
+    if (!authenticated) {
       login();
       return;
     }
@@ -97,8 +111,9 @@ export default function PositionCreator() {
     setError(null);
     
     try {
-      if (!fractalPositionService.isConfigured()) {
-        console.warn('Aptos not configured, simulating deployment');
+      const aptosWallet = wallets.find((wallet) => wallet.chainType === 'movement');
+      if (!aptosWallet || !fractalPositionService.isConfigured()) {
+        console.warn('Aptos not configured or wallet not found, simulating deployment');
         await new Promise(resolve => setTimeout(resolve, 2000));
         setTxHash('0x' + Math.random().toString(16).substring(2, 18));
         setDeployed(true);
@@ -118,8 +133,28 @@ export default function PositionCreator() {
         }
       );
       
-      console.log('Transaction payload:', payload);
-      setTxHash('0x' + Math.random().toString(16).substring(2, 18));
+      const senderAddress = normalizeAptosAddress(aptosWallet.address);
+
+      const transaction = {
+        data: payload
+      };
+      
+      console.log('Transaction:', transaction);
+
+      const tx = await sendTransaction(
+        {
+          to: payload.function.split('::')[0],
+          data: transaction as any,
+          value: '0',
+        },
+        {
+          address: senderAddress,
+        }
+      );
+      
+      await aptos.waitForTransaction({ transactionHash: tx.hash });
+
+      setTxHash(tx.hash);
       setDeployed(true);
     } catch (err) {
       console.error('Failed to deploy position:', err);
@@ -306,7 +341,7 @@ export default function PositionCreator() {
               transition={{ delay: 0.6 }}
               className="space-y-3"
             >
-              {!authenticated && ready && (
+              {!authenticated && walletsReady && (
                 <motion.button
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
@@ -322,14 +357,19 @@ export default function PositionCreator() {
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={handleGenerateProof}
-                disabled={isGeneratingProof || proofGenerated || deployed}
+                disabled={!walletsReady || isGeneratingProof || proofGenerated || deployed}
                 className={`w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all border ${
                   proofGenerated
                     ? 'border-green-500/20 bg-green-500/[0.05] text-green-400'
                     : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
                 } disabled:opacity-50`}
               >
-                {isGeneratingProof ? (
+                {!walletsReady ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading Wallets...
+                  </>
+                ) : isGeneratingProof ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Generating ZK Proof...
@@ -351,7 +391,7 @@ export default function PositionCreator() {
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={handleDeploy}
-                disabled={!proofGenerated || isDeploying || deployed}
+                disabled={!walletsReady || !proofGenerated || isDeploying || deployed}
                 className={`w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 ${
                   deployed
                     ? 'bg-green-500/10 text-green-400 border border-green-500/20'

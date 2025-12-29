@@ -1,6 +1,7 @@
 import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import type { InputViewFunctionData, InputEntryFunctionData } from '@aptos-labs/ts-sdk';
 import { config, validateConfig } from '../config';
+import { normalizeAptosAddress } from '../utils/address';
 
 const aptosConfig = new AptosConfig({
   network: Network.CUSTOM,
@@ -58,11 +59,11 @@ export const fractalPositionService = {
     return Boolean(config.movement.moduleAddress);
   },
 
-  async getPosition(owner: string, positionId: number): Promise<Position> {
+  async getPosition(owner: string, positionId: number): Promise<Position | null> {
     const moduleAddress = getModuleAddress();
     const payload: InputViewFunctionData = {
       function: `${moduleAddress}::fractal_position::get_position`,
-      functionArguments: [owner, positionId],
+      functionArguments: [normalizeAptosAddress(owner), positionId],
     };
     
     try {
@@ -79,9 +80,12 @@ export const fractalPositionService = {
         fractalType: toNumberSafe(result[5]),
         depth: toNumberSafe(result[6]),
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.message && (error.message.includes('MISSING_DATA') || error.message.includes('Failed to borrow global resource'))) {
+        return null;
+      }
       console.error('Failed to fetch position:', error);
-      throw new Error(`Failed to fetch position: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to fetch position: ${error.message || String(error)}`);
     }
   },
 
@@ -89,7 +93,7 @@ export const fractalPositionService = {
     const moduleAddress = getModuleAddress();
     const payload: InputViewFunctionData = {
       function: `${moduleAddress}::fractal_position::liquidity_at_price`,
-      functionArguments: [owner, positionId, price],
+      functionArguments: [normalizeAptosAddress(owner), positionId, price],
     };
     
     try {
@@ -152,7 +156,7 @@ export const vaultService = {
     const payload: InputViewFunctionData = {
       function: `${moduleAddress}::vault::get_reserves`,
       typeArguments: [coinTypeX, coinTypeY],
-      functionArguments: [adminAddr],
+      functionArguments: [normalizeAptosAddress(adminAddr)],
     };
     
     try {

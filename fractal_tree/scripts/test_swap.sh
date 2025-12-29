@@ -7,18 +7,10 @@ source "$(dirname "$0")/common_config.sh"
 COIN_X=${MODULE_ADDRESS}::weth::WETH
 COIN_Y=${MODULE_ADDRESS}::usdc::USDC
 
-TOKEN_OBJECT_ADDRESS=$1 # Expecting the NFT object address as the first argument
-
-if [ -z "$TOKEN_OBJECT_ADDRESS" ]; then
-  echo "Usage: $0 <NFT_OBJECT_ADDRESS>"
-  exit 1
-fi
-
 echo "=============================="
-echo " Burn Position Test"
+echo " Swap Test"
 echo " Profile: $PROFILE"
 echo " Module:  $MODULE_ADDRESS"
-echo " NFT to burn: $TOKEN_OBJECT_ADDRESS"
 echo "=============================="
 
 echo "→ Initial Vault Reserves:"
@@ -29,12 +21,14 @@ movement move view \
   --assume-yes
 
 echo ""
-echo "→ Burning Position NFT $TOKEN_OBJECT_ADDRESS..."
+echo "→ Swapping 0.1 WETH ($((10**7))) for USDC (min_amount_out: 0)..."
 movement move run \
   --profile $PROFILE \
-  --function-id ${MODULE_ADDRESS}::fractal_position::burn_position \
+  --function-id ${MODULE_ADDRESS}::vault::swap \
   --type-args $COIN_X $COIN_Y \
-  --args address:$TOKEN_OBJECT_ADDRESS \
+  --args \
+    u64:$((10**7)) \
+    u64:0 \
   --assume-yes
 
 echo ""
@@ -46,5 +40,5 @@ movement move view \
   --assume-yes
 
 echo ""
-echo "✅ Burn test completed successfully"
+echo "✅ Swap test completed"
 echo "=============================="

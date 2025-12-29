@@ -1,17 +1,28 @@
 [package]
-name = "fractal_tree"
+name = "fractal-testnet"
 version = "1.0.0"
 authors = []
 
 [addresses]
-fractal_tree = "0x43f0581028053bb1b1a738c34637203ff015fac6683592ef781722d8e40449e3"
+fractal_tree = "0xfb32e4c8c950667e1ed2d4e42ea38a5dadbcfabc8a983dcf690e6ae6624d8a60"
+aptos_token_objects = "0x4"
 
 [dependencies.AptosFramework]
 git = "https://github.com/movementlabsxyz/aptos-core.git"
 rev = "movement"
 subdir = "aptos-move/framework/aptos-framework"
 
+[dependencies.AptosStdlib]
+git = "https://github.com/movementlabsxyz/aptos-core.git"
+rev = "movement"
+subdir = "aptos-move/framework/aptos-stdlib"
+
 [dependencies.MoveStdlib]
 git = "https://github.com/movementlabsxyz/aptos-core.git"
 rev = "movement"
 subdir = "aptos-move/framework/move-stdlib"
+
+[dependencies.AptosTokenObjects]
+git = "https://github.com/movementlabsxyz/aptos-core.git"
+rev = "movement"
+subdir = "aptos-move/framework/aptos-token-objects"

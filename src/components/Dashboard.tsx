@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, EyeOff, Plus, ArrowUpRight, Loader2, Wallet, AlertCircle } from 'lucide-react';
+import { TrendingUp, EyeOff, Plus, ArrowUpRight, Loader2, Wallet, AlertCircle, X } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
+import { useWallets, useSendTransaction } from '@privy-io/react-auth';
 import { positionService } from '../services/api';
 import { fractalPositionService } from '../services/aptos';
+import { config } from '../config';
+import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
+import { normalizeAptosAddress } from '../utils/address';
 
 interface DashboardProps {
   setCurrentPage: (page: string) => void;
@@ -27,11 +31,24 @@ const fractalTypeNames: Record<number, string> = {
 };
 
 export default function Dashboard({ setCurrentPage }: DashboardProps) {
-  const { authenticated, address, login, ready } = useWallet();
+  const aptos = useMemo(() => {
+    const aptosConfig = new AptosConfig({
+      network: Network.CUSTOM,
+      fullnode: config.movement.rpc,
+    });
+    return new Aptos(aptosConfig);
+  }, []);
+
+  const { authenticated, login } = useWallet();
+  const { wallets, ready: walletsReady } = useWallets();
+  const { sendTransaction } = useSendTransaction();
+
+  const aptosWallet = useMemo(() => wallets.find((wallet) => wallet.chainType === 'movement'), [wallets]);
+
   const [positions, setPositions] = useState<PositionDisplay[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [useMockData, setUseMockData] = useState(true);
+  const [closingPositionId, setClosingPositionId] = useState<number | null>(null);
 
   const mockPositions: PositionDisplay[] = [
     { id: 1, pair: 'ETH/USDC', type: 'Fibonacci', value: '$8,500', earnings: '+3.67%', liquidity: 8500 },
@@ -58,23 +75,22 @@ export default function Dashboard({ setCurrentPage }: DashboardProps) {
   ];
 
   useEffect(() => {
-    if (authenticated && address && !useMockData) {
-      fetchPositions();
-    } else if (useMockData) {
-      setPositions(mockPositions);
+    if (walletsReady) {
+      if (authenticated && aptosWallet) {
+        fetchPositions(aptosWallet.address);
+      } else {
+        setLoading(false);
+        setPositions(mockPositions);
+      }
     }
-  }, [authenticated, address, useMockData]);
+  }, [authenticated, aptosWallet, walletsReady]);
 
-  useEffect(() => {
-    if (!useMockData) {
-      setPositions([]);
-    } else {
+  async function fetchPositions(walletAddress: string) {
+    if (!walletAddress) {
       setPositions(mockPositions);
+      setLoading(false);
+      return;
     }
-  }, [useMockData]);
-
-  async function fetchPositions() {
-    if (!address) return;
     
     setLoading(true);
     setError(null);
@@ -82,49 +98,86 @@ export default function Dashboard({ setCurrentPage }: DashboardProps) {
     try {
       const fetchedPositions: PositionDisplay[] = [];
       
-      for (let i = 0; i < 10; i++) {
-        try {
-          let position;
-          
-          if (fractalPositionService.isConfigured()) {
-            const aptosPosition = await fractalPositionService.getPosition(address, i);
-            position = {
-              id: aptosPosition.id,
-              pair: 'MOVE/USDC',
-              type: fractalTypeNames[aptosPosition.fractalType] || 'Unknown',
-              value: `$${aptosPosition.liquidityFormatted.toLocaleString()}`,
-              earnings: '+0.00%',
-              liquidity: aptosPosition.liquidityFormatted,
-            };
-          } else {
-            const apiPosition = await positionService.getPosition(address, i);
-            position = {
-              id: apiPosition.id,
-              pair: 'MOVE/USDC',
-              type: fractalTypeNames[apiPosition.fractalType] || 'Unknown',
-              value: `$${apiPosition.liquidity.toLocaleString()}`,
-              earnings: '+0.00%',
-              liquidity: apiPosition.liquidity,
-            };
-          }
-          
+      for (let i = 0; i < 10; i++) { // Limit to checking 10 position IDs for now
+        const positionResult = await fractalPositionService.getPosition(walletAddress, i);
+        
+        if (positionResult) {
+          const position = {
+            id: positionResult.id,
+            pair: 'MOVE/USDC',
+            type: fractalTypeNames[positionResult.fractalType] || 'Unknown',
+            value: `$${positionResult.liquidityFormatted.toLocaleString()}`,
+            earnings: '+0.00%',
+            liquidity: positionResult.liquidityFormatted,
+          };
           fetchedPositions.push(position);
-        } catch {
+        } else {
+          // If we get a null result, it means the resource is missing or 
+          // we've hit an ID that doesn't exist in the table. We can stop.
           break;
         }
       }
       
       setPositions(fetchedPositions.length > 0 ? fetchedPositions : mockPositions);
-      if (fetchedPositions.length === 0) {
-        setUseMockData(true);
-      }
     } catch (err) {
       console.error('Failed to fetch positions:', err);
       setError('Failed to load positions. Showing demo data.');
       setPositions(mockPositions);
-      setUseMockData(true);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleClosePosition(positionId: number) {
+    if (!authenticated || !aptosWallet) {
+      login();
+      return;
+    }
+
+    setClosingPositionId(positionId);
+    setError(null);
+
+    try {
+      if (!fractalPositionService.isConfigured()) {
+        throw new Error('Module not configured.');
+      }
+
+      const payload = fractalPositionService.buildBurnPositionPayload(
+        '0x1::aptos_coin::AptosCoin',
+        '0x1::aptos_coin::AptosCoin',
+        positionId
+      );
+
+      const senderAddress = normalizeAptosAddress(aptosWallet.address);
+
+      const transaction = {
+        data: payload
+      };
+      
+      console.log('Transaction:', transaction);
+
+      const tx = await sendTransaction(
+        {
+          to: payload.function.split('::')[0],
+          data: transaction as any,
+          value: '0',
+        },
+        {
+          address: senderAddress,
+        }
+      );
+
+      await aptos.waitForTransaction({ transactionHash: tx.hash });
+      
+      console.log('Close position tx hash:', tx.hash);
+      // Refetch positions after a delay to allow the transaction to be indexed
+      setTimeout(() => fetchPositions(aptosWallet.address), 3000);
+
+    } catch (err) {
+      console.error('Failed to close position:', err);
+      setError('Failed to close position. Please try again.');
+    } finally {
+      setClosingPositionId(null);
     }
   }
 
@@ -141,12 +194,12 @@ export default function Dashboard({ setCurrentPage }: DashboardProps) {
           <div>
             <span className="text-xs tracking-widest uppercase text-gray-500 mb-2 block">Overview</span>
             <h1 className="text-5xl font-light">Dashboard</h1>
-            {useMockData && (
+            {displayPositions === mockPositions && !loading && (
               <p className="text-xs text-gray-600 mt-2">Showing demo data</p>
             )}
           </div>
           <div className="flex items-center gap-4">
-            {!authenticated && ready && (
+            {!authenticated && walletsReady && (
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -239,6 +292,19 @@ export default function Dashboard({ setCurrentPage }: DashboardProps) {
                           {position.earnings}
                         </p>
                       </div>
+                      <motion.button
+                        onClick={() => handleClosePosition(position.id)}
+                        disabled={closingPositionId === position.id}
+                        className="p-2 rounded-full hover:bg-red-500/10"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        {closingPositionId === position.id ? (
+                          <Loader2 className="w-5 h-5 text-red-500 animate-spin" />
+                        ) : (
+                          <X className="w-5 h-5 text-red-500" />
+                        )}
+                      </motion.button>
                       <ArrowUpRight className="w-5 h-5 text-gray-600 group-hover:text-white transition-colors" />
                     </div>
                   </motion.div>

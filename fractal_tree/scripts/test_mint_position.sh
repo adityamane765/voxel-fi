@@ -1,58 +1,87 @@
 #!/usr/bin/env bash
 set -e
 
-PROFILE=fractal-testnet
-MODULE_ADDR=0x43f0581028053bb1b1a738c34637203ff015fac6683592ef781722d8e40449e3
-OWNER_ADDR=$MODULE_ADDR
-POSITION_ID=0
-COIN=0x1::aptos_coin::AptosCoin
+# Import common configuration
+source "$(dirname "$0")/common_config.sh"
+
+OWNER_ADDR=$MODULE_ADDRESS
+COIN_X=${MODULE_ADDRESS}::weth::WETH
+COIN_Y=${MODULE_ADDRESS}::usdc::USDC
 
 echo "=============================="
 echo " Mint Position Test"
 echo " Profile: $PROFILE"
-echo " Module:  $MODULE_ADDR"
+echo " Module:  $MODULE_ADDRESS"
 echo "=============================="
 
-echo "→ Minting fractal position..."
+echo ""
+echo "→ Initial Vault Reserves:"
+movement move view \
+  --profile "$PROFILE" \
+  --function-id "${MODULE_ADDRESS}::vault::get_reserves" \
+  --type-args "$COIN_X" "$COIN_Y" \
+  --assume-yes
+
+echo ""
+echo "→ Minting fractal position with 10 WETH and 30,000 USDC..."
+
+TMP_OUT=$(mktemp)
+
 movement move run \
-  --profile $PROFILE \
-  --function-id ${MODULE_ADDR}::fractal_position::mint_position \
-  --type-args $COIN $COIN \
+  --profile "$PROFILE" \
+  --function-id "${MODULE_ADDRESS}::fractal_position::mint_position" \
+  --type-args "$COIN_X" "$COIN_Y" \
   --args \
-    u64:1000000 \
-    u64:0 \
-    u64:1000 \
-    u64:100 \
+    u64:1000000000 \
+    u64:30000000000 \
+    u64:3000 \
+    u64:500 \
     u8:0 \
-    u8:4
+    u8:4 \
+    --assume-yes \
+  2>&1 | tee "$TMP_OUT"
+
+# Extract transaction hash
+TX_HASH=$(grep -oE 'Transaction hash: [A-Za-z0-9]+' "$TMP_OUT" | awk '{print $3}' || true)
+
+rm -f "$TMP_OUT"
 
 echo ""
-echo "→ Checking vault reserves..."
+echo "→ Final Vault Reserves:"
 movement move view \
-  --profile $PROFILE \
-  --function-id ${MODULE_ADDR}::vault::get_reserves \
-  --type-args $COIN $COIN \
-  --args address:$OWNER_ADDR
+  --profile "$PROFILE" \
+  --function-id "${MODULE_ADDRESS}::vault::get_reserves" \
+  --type-args "$COIN_X" "$COIN_Y" \
+  --assume-yes
 
-echo ""
-echo "→ Checking position #$POSITION_ID..."
-movement move view \
-  --profile $PROFILE \
-  --function-id ${MODULE_ADDR}::fractal_position::get_position \
-  --args \
-    address:$OWNER_ADDR \
-    u64:$POSITION_ID
+if [ -n "$TX_HASH" ]; then
+  echo ""
+  echo "→ Transaction hash: $TX_HASH"
+  echo "→ Waiting for transaction to be processed..."
+  sleep 3
 
-echo ""
-echo "→ Checking octree bucket..."
-movement move view \
-  --profile $PROFILE \
-  --function-id ${MODULE_ADDR}::spatial_octree::query \
-  --args \
-    address:$OWNER_ADDR \
-    u16:100 \
-    u8:3 \
-    u8:3
+  TX_DETAILS=$(movement view transaction-by-hash "$TX_HASH" --profile "$PROFILE" 2>/dev/null || echo "{}")
+
+  NFT_ADDRESS=$(echo "$TX_DETAILS" | jq -r '.events[] | select(.type | contains("PositionMinted")) | .data.token_addr' 2>/dev/null || echo "")
+
+  if [ -n "$NFT_ADDRESS" ] && [ "$NFT_ADDRESS" != "null" ]; then
+    echo ""
+    echo "✨ New Position NFT minted at address: $NFT_ADDRESS"
+    echo ""
+    echo "→ You can now use this address with:"
+    echo "  ./test_liquidity_view.sh $NFT_ADDRESS"
+    echo "  ./test_zk_flow.sh $NFT_ADDRESS"
+    echo "  ./test_burn_position.sh $NFT_ADDRESS"
+  else
+    echo ""
+    echo "⚠️  Could not extract NFT address automatically."
+    echo "   Please check the transaction events manually."
+  fi
+else
+  echo ""
+  echo "⚠️  Could not extract transaction hash."
+  echo "   Position minted successfully, please obtain the NFT address from "https://explorer.movementnetwork.xyz/txn/${TX_HASH}/events?network=bardock+testnet""
+fi
 
 echo ""
 echo "✅ Mint test completed successfully"
