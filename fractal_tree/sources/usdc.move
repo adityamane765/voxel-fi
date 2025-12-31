@@ -3,28 +3,25 @@ module fractal_tree::usdc {
     use aptos_framework::coin;
     use aptos_framework::managed_coin;
 
-    /// The type that uniquely identifies the USDC coin.
+    /// type to uniquely identify coin is usdc
     struct USDC has drop {}
 
-    /// Initialize the USDC coin.
     public entry fun init(deployer: &signer) {
         managed_coin::initialize<USDC>(
             deployer,
-            b"USDC", // Coin name
-            b"USDC", // Coin symbol
-            6,        // Decimals (USDC typically has 6 decimals)
-            false     // Monitor supply
+            b"USDC", // name
+            b"USDC", // symbol
+            6,       
+            false
         );
     }
 
-    /// Mint `amount` of USDC to `recipient`.
+    /// mint
     public entry fun mint(minter: &signer, recipient: address, amount: u64) {
-        // Only the minter/deployer can mint
-        assert!(signer::address_of(minter) == @fractal_tree, 0); // E_NOT_AUTHORIZED
+        assert!(signer::address_of(minter) == @fractal_tree, 0); //only the deployer can mint
         managed_coin::mint<USDC>(minter, recipient, amount);
     }
 
-    /// Burn `amount` of USDC from `signer`.
     public entry fun burn(burner: &signer, amount: u64) {
         managed_coin::burn<USDC>(burner, amount);
     }
@@ -38,6 +35,7 @@ module fractal_tree::usdc {
         coin::register<USDC>(signer);
     }
 
+    #[view]
     public fun balance(owner: address): u64 {
         coin::balance<USDC>(owner)
     }

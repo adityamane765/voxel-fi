@@ -2,8 +2,9 @@
 
 set +e
 
-PROFILE=f5
-MODULE_ADDRESS=0x10b3826d14a19405d67bdee5fbaa6c4b3fcf52910a626f898ef844b94be92b9a
+# Import common configuration
+source "$(dirname "$0")/common_config.sh"
+
 COIN_X=${MODULE_ADDRESS}::weth::WETH
 COIN_Y=${MODULE_ADDRESS}::usdc::USDC
 
@@ -49,15 +50,13 @@ check_component "USDC initialization" \
   "movement move view --profile $PROFILE --function-id ${MODULE_ADDRESS}::usdc::balance --args address:$MODULE_ADDRESS --assume-yes"
 
 # Get token balances
-WETH_BALANCE=$(movement move view --profile $PROFILE \
+WETH_BALANCE=$(movement move view --assume-yes --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::weth::balance \
-  --args address:$MODULE_ADDRESS 2>/dev/null | jq -r '.[0]' 2>/dev/null || echo "0") \
-  --assume-yes
+  --args address:$MODULE_ADDRESS 2>/dev/null | jq -r '.[0]' 2>/dev/null || echo "0")
 
-USDC_BALANCE=$(movement move view --profile $PROFILE \
+USDC_BALANCE=$(movement move view --assume-yes --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::usdc::balance \
-  --args address:$MODULE_ADDRESS 2>/dev/null | jq -r '.[0]' 2>/dev/null || echo "0") \
-  --assume-yes
+  --args address:${MODULE_ADDRESS} 2>/dev/null | jq -r '.[0]' 2>/dev/null || echo "0")
 
 echo "  WETH Balance: $WETH_BALANCE ($(echo "scale=2; $WETH_BALANCE / 100000000" | bc 2>/dev/null || echo "?") WETH)"
 echo "  USDC Balance: $USDC_BALANCE ($(echo "scale=2; $USDC_BALANCE / 1000000" | bc 2>/dev/null || echo "?") USDC)"
@@ -74,10 +73,9 @@ check_component "Spatial Octree" \
 echo ""
 
 echo "=== Vault Reserves ==="
-RESERVES=$(movement move view --profile $PROFILE \
+RESERVES=$(movement move view --assume-yes --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::vault::get_reserves \
-  --type-args $COIN_X $COIN_Y 2>/dev/null) \
-  --assume-yes
+  --type-args $COIN_X $COIN_Y 2>/dev/null)
 
 if [ -n "$RESERVES" ]; then
   RESERVE_X=$(echo "$RESERVES" | jq -r '.[0]' 2>/dev/null || echo "0")

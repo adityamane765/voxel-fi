@@ -4,17 +4,9 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogoMinimal } from './Logo';
-import { Wallet, Loader2, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
-
-interface NavbarProps {
-  // Wallet integration props - to be connected with Privy
-  isConnected?: boolean;
-  isLoading?: boolean;
-  address?: string;
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-}
+import { WalletConnect } from './WalletConnect';
 
 const navLinks = [
   { href: '/', label: 'home' },
@@ -23,25 +15,9 @@ const navLinks = [
   { href: '/create', label: 'create' },
 ];
 
-export default function Navbar({
-  isConnected = false,
-  isLoading = false,
-  address,
-  onConnect,
-  onDisconnect,
-}: NavbarProps) {
+export default function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
-
-  const handleConnect = () => {
-    if (isConnected && onDisconnect) {
-      onDisconnect();
-    } else if (onConnect) {
-      onConnect();
-    }
-  };
 
   return (
     <motion.nav
@@ -89,27 +65,7 @@ export default function Navbar({
 
         {/* Connect Button */}
         <div className="flex items-center gap-4">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleConnect}
-            disabled={isLoading}
-            className="btn-minimal px-6 py-2 rounded-full text-sm flex items-center gap-2 disabled:opacity-50"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                loading
-              </>
-            ) : isConnected ? (
-              <>
-                <Wallet className="w-4 h-4" />
-                {shortAddress}
-              </>
-            ) : (
-              'connect'
-            )}
-          </motion.button>
+          <WalletConnect />
 
           {/* Mobile Menu Button */}
           <button

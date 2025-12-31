@@ -4,23 +4,26 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
+    "build:turbo": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^5.2.0",
+    "@aptos-labs/wallet-adapter-react": "^7.0.4",
+    "@aptos-labs/wallet-standard": "^0.5.1",
     "@privy-io/react-auth": "^3.10.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
-    "@solana-program/system": "^0.10.0",
-    "@solana-program/token": "^0.9.0",
-    "@solana/kit": "^5.1.0",
+    "@wallet-standard/core": "^1.1.1",
+    "circomlibjs": "^0.1.7",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "snarkjs": "^0.7.5",
     "three": "^0.182.0"
   },
   "devDependencies": {
@@ -28,6 +31,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/snarkjs": "^0.7.9",
     "@types/three": "^0.182.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",

@@ -6,30 +6,29 @@ module fractal_tree::zk_verifier {
     use aptos_framework::event;
 
     /// Error codes
-    const E_ALREADY_COMMITTED: u64 = 1;
-    const E_INVALID_PROOF: u64 = 2;
-    const E_NULLIFIER_USED: u64 = 3;
-    const E_COMMITMENT_NOT_FOUND: u64 = 4;
+    const E_ALREADY_COMMITTED: u64 =1;
+    const E_INVALID_PROOF: u64 =2;
+    const E_NULLIFIER_USED: u64 =3;
+    const E_COMMITMENT_NOT_FOUND: u64 =4;
 
-    /// Changed to 'store' to allow multiple commitments per user
+    /// store to allow multiple commitments per user
     struct Commitment has store {
         owner: address,
         commitment_hash: vector<u8>,
         position_id: u64,
     }
 
-    /// Store multiple commitments in a table
+    /// store multiple commitments in a table
     struct Commitments has key {
         commitments: Table<u64, Commitment>, // position_id -> commitment
         owner: address,
     }
 
-    /// Track nullifiers per position instead of globally
+    /// track nullifiers per position instead of globally
     struct Nullifier has store {
         position_id: u64,
         used: bool,
     }
-
     struct Nullifiers has key {
         nullifiers: Table<u64, Nullifier>, // position_id -> nullifier
         owner: address,
@@ -42,7 +41,6 @@ module fractal_tree::zk_verifier {
         position_id: u64,
         commitment_hash: vector<u8>,
     }
-
     #[event]
     struct ProofVerified has drop, store {
         user: address,
@@ -50,7 +48,7 @@ module fractal_tree::zk_verifier {
         position_id: u64,
     }
 
-    /// Initialize commitments storage for a user
+    /// init commitments storage for a user
     fun init_commitments_if_needed(owner: &signer) {
         let owner_addr = signer::address_of(owner);
         if (!exists<Commitments>(owner_addr)) {
@@ -61,7 +59,7 @@ module fractal_tree::zk_verifier {
         };
     }
 
-    /// Initialize nullifiers storage for a user
+    /// init nullifiers storage for a user
     fun init_nullifiers_if_needed(user: &signer) {
         let user_addr = signer::address_of(user);
         if (!exists<Nullifiers>(user_addr)) {
@@ -72,18 +70,15 @@ module fractal_tree::zk_verifier {
         };
     }
 
-    /// Store a ZK commitment for a position - supports multiple commitments
+    /// store a ZK commitment for a position, multiple commitments supproted
     public entry fun commit_position(
         owner: &signer,
         position_id: u64,
         commitment_hash: vector<u8>,
     ) acquires Commitments {
         let owner_addr = signer::address_of(owner);
-
         init_commitments_if_needed(owner);
-
         let commitments = borrow_global_mut<Commitments>(owner_addr);
-
         assert!(
             !table::contains(&commitments.commitments, position_id),
             error::invalid_state(E_ALREADY_COMMITTED)
@@ -94,7 +89,6 @@ module fractal_tree::zk_verifier {
             commitment_hash,
             position_id,
         });
-
         event::emit(CommitmentCreated {
             owner: owner_addr,
             position_id,
@@ -102,45 +96,29 @@ module fractal_tree::zk_verifier {
         });
     }
 
-    /// ZK verification hook - verifies per position
-    ///
-    /// In production:
-    ///   - proof is verified off-chain (Groth16 / Plonk)
-    ///   - result is passed here
-    ///
-    /// On-chain guarantees:
-    ///   - commitment exists for the position
-    ///   - proof was verified
-    ///   - proof cannot be replayed for this position
+    /// ZK verification hook - verifies per position, snark verificn on chain not supported yet on movement
     public entry fun verify_proof(
         user: &signer,
         owner_addr: address,
         position_id: u64,
         proof_verified: bool,
     ) acquires Commitments, Nullifiers {
-        // Check that commitment exists
         assert!(
             exists<Commitments>(owner_addr),
             error::not_found(E_COMMITMENT_NOT_FOUND)
         );
-
-        let commitments = borrow_global<Commitments>(owner_addr);
-        
+        let commitments =borrow_global<Commitments>(owner_addr);
         assert!(
             table::contains(&commitments.commitments, position_id),
             error::not_found(E_COMMITMENT_NOT_FOUND)
         );
-
-        let _commitment = table::borrow(&commitments.commitments, position_id);
+        let _commitment =table::borrow(&commitments.commitments, position_id);
 
         assert!(proof_verified, error::invalid_argument(E_INVALID_PROOF));
-
         let user_addr = signer::address_of(user);
-
         init_nullifiers_if_needed(user);
-
         let nullifiers = borrow_global_mut<Nullifiers>(user_addr);
-
+        
         // Check if this position has already been proven by this user
         assert!(
             !table::contains(&nullifiers.nullifiers, position_id),

@@ -1,9 +1,25 @@
-node_modules
-.env
-dist
-build
-.move
-acc_info.md
-detail.md
+/node_modules
+/coverage
+/zk/build_ow
+/zk/build_rp
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+.DS_Store
+*.pem
+npm-debug.log*
+.env*
 .vercel
-.env*.local
+*.tsbuildinfo
+
+next-env.d.ts
+
+setup.md
+/backup
+zk/build_rp
+zk/build_ow

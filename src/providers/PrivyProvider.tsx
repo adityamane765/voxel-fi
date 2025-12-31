@@ -16,12 +16,19 @@ export default function PrivyProvider({
           theme: 'dark',
           accentColor: '#06b6d4',
           logo: '/logo.png',
+          showWalletLoginFirst: false,
         },
-        loginMethods: ['wallet', 'email', 'google'],
+        // Social login methods - key for smooth onboarding
+        loginMethods: ['email', 'google', 'twitter', 'discord'],
+        // Embedded wallets configuration
         embeddedWallets: {
-          ethereum: {
-            createOnLogin: 'users-without-wallets',
-          },
+          // Show wallet UI after login for first-time users
+          showWalletUIs: true,
+        },
+        // Legal/compliance
+        legal: {
+          termsAndConditionsUrl: 'https://voxelfi.xyz/terms',
+          privacyPolicyUrl: 'https://voxelfi.xyz/privacy',
         },
       }}
     >

@@ -4,14 +4,16 @@ module fractal_tree::spatial_octree {
     use aptos_framework::table::{Self, Table};
     use aptos_framework::event;
 
+    friend fractal_tree::fractal_position;
+
     /// Error codes
     const E_INVALID_BUCKET: u64 = 1;
     const E_OCTREE_NOT_DEPLOYED: u64 = 2;
     const E_NOT_AUTHORIZED: u64 = 3;
     const E_INSUFFICIENT_LIQUIDITY_IN_CELL: u64 = 4;
-    const E_OCTREE_ALREADY_DEPLOYED: u64 = 5;  // Added
+    const E_OCTREE_ALREADY_DEPLOYED: u64 = 5;
 
-    /// Precision limits (documented)
+    /// Precision limits
     const MAX_PRICE_BUCKET: u16 = 4095;
     const MAX_VOL_BUCKET: u8 = 3;
     const MAX_DEPTH_BUCKET: u8 = 3;
@@ -37,22 +39,18 @@ module fractal_tree::spatial_octree {
         liquidity: u64,
     }
 
-    // Initialize the spatial index once by the deployer
-    // FIXED: Corrected the assertion logic
+    // initialize the spatial index once by the deployer
     public entry fun init(deployer: &signer) {
         let deployer_addr = signer::address_of(deployer);
         assert!(deployer_addr == @fractal_tree, error::permission_denied(E_NOT_AUTHORIZED));
-        
-        // FIXED: Check that octree does NOT exist yet (was checking that it DID exist)
         assert!(!exists<Octree>(@fractal_tree), error::already_exists(E_OCTREE_ALREADY_DEPLOYED));
-        
         move_to(deployer, Octree {
             cells: table::new<u64, u64>(),
         });
     }
 
-    /// Insert liquidity into a spatial cell (for internal module calls)
-    public fun insert(
+    /// insert liquidity into a spatial cell (restricted to friend modules only)
+    public(friend) fun insert(
         price_bucket: u16,
         vol_bucket: u8,
         depth: u8,
@@ -60,11 +58,10 @@ module fractal_tree::spatial_octree {
     ) acquires Octree {
         assert!(exists<Octree>(@fractal_tree), error::not_found(E_OCTREE_NOT_DEPLOYED));
 
-        // Validate buckets are within limits
+        // validate if buckets are within limits
         assert!(price_bucket <= MAX_PRICE_BUCKET, error::invalid_argument(E_INVALID_BUCKET));
         assert!(vol_bucket <= MAX_VOL_BUCKET, error::invalid_argument(E_INVALID_BUCKET));
         assert!(depth <= MAX_DEPTH_BUCKET, error::invalid_argument(E_INVALID_BUCKET));
-
         let morton = morton_encode(price_bucket, vol_bucket, depth);
         let octree = borrow_global_mut<Octree>(@fractal_tree);
 
@@ -84,23 +81,19 @@ module fractal_tree::spatial_octree {
         });
     }
 
-    /// Remove liquidity from a spatial cell (for internal module calls)
-    public fun remove(
+    /// remove liquidity from a spatial cell (restricted to friend modules only)
+    public(friend) fun remove(
         price_bucket: u16,
         vol_bucket: u8,
         depth: u8,
         liquidity: u64,
     ) acquires Octree {
         assert!(exists<Octree>(@fractal_tree), error::not_found(E_OCTREE_NOT_DEPLOYED));
-
         let morton = morton_encode(price_bucket, vol_bucket, depth);
         let octree = borrow_global_mut<Octree>(@fractal_tree);
-
         assert!(table::contains(&octree.cells, morton), error::invalid_argument(E_INVALID_BUCKET));
-
         let current = table::borrow_mut(&mut octree.cells, morton);
         assert!(*current >= liquidity, error::invalid_argument(E_INSUFFICIENT_LIQUIDITY_IN_CELL));
-
         *current = *current - liquidity;
 
         event::emit(LiquidityRemoved {
@@ -109,7 +102,7 @@ module fractal_tree::spatial_octree {
         });
     }
 
-    // Query total liquidity at a spatial point (read-only)
+    // query total liquidity at a spatial pointy
     #[view]
     public fun query(
         price_bucket: u16,
@@ -117,28 +110,23 @@ module fractal_tree::spatial_octree {
         depth: u8,
     ): u64 acquires Octree {
         assert!(exists<Octree>(@fractal_tree), error::not_found(E_OCTREE_NOT_DEPLOYED));
-
         let morton = morton_encode(price_bucket, vol_bucket, depth);
         let octree = borrow_global<Octree>(@fractal_tree);
-
         if (table::contains(&octree.cells, morton)) {
             *table::borrow(&octree.cells, morton)
-        } else {
-            0
-        }
+        } else {0}
     }
 
-    /// Morton encode (Z-order–style packing)
-    /// Encodes 3D coordinates into a single u64 using bit interleaving
+    /// morton encode (Z order style packing)
+    /// 3d coordinates into a single u64 using bit interleaving
     fun morton_encode(
         price: u16,
         vol: u8,
         depth: u8,
     ): u64 {
-        let p = price & 0x0FFF;  // 12 bits
-        let v = vol & 0x03;      // 2 bits
-        let d = depth & 0x03;    // 2 bits
-
+        let p = price & 0x0FFF;
+        let v = vol & 0x03;
+        let d = depth & 0x03;
         (p as u64)
         | ((v as u64) << 12)
         | ((d as u64) << 14)

@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-fractal_tree = "0xfb32e4c8c950667e1ed2d4e42ea38a5dadbcfabc8a983dcf690e6ae6624d8a60"
+fractal_tree = "0xa5db4eaeaced2000fb0b46b7fba334f4deb8acdb13dab1ac59d34fd57d3a0f78"
 aptos_token_objects = "0x4"
 
 [dependencies.AptosFramework]

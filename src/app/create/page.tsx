@@ -9,24 +9,59 @@ import {
   Sparkles,
   ChevronDown,
   Check,
+  Wallet,
+  AlertCircle,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import LiquidityChart from '@/components/LiquidityChart';
 import { config, FractalType } from '@/config';
+import { useVoxelFi, useZKProof, useVolatilityOracle } from '@/hooks';
+import { Activity, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface Token {
   symbol: string;
   name: string;
   icon: string;
+  decimals: number;
 }
 
 const tokens: Token[] = [
-  { symbol: 'WETH', name: 'Wrapped ETH', icon: 'E' },
-  { symbol: 'USDC', name: 'USD Coin', icon: '$' },
-  { symbol: 'MOVE', name: 'Movement', icon: 'M' },
+  { symbol: 'WETH', name: 'Wrapped ETH', icon: 'E', decimals: 8 },
+  { symbol: 'USDC', name: 'USD Coin', icon: '$', decimals: 6 },
 ];
 
 export default function CreatePositionPage() {
+  const {
+    isConnected,
+    address,
+    isLoading: walletLoading,
+    login,
+    mintPosition,
+  } = useVoxelFi();
+
+  const {
+    isGenerating: isGeneratingProof,
+    generatePositionSecret,
+    generatePositionCommitment,
+    storePositionSecret,
+  } = useZKProof();
+
+  // Store the generated secret for later use
+  const [positionSecret, setPositionSecret] = useState<string | null>(null);
+
+  // Volatility oracle data
+  const {
+    metrics: volatilityMetrics,
+    volatilityBucket,
+    volatilityLabel,
+    volatilityDescription,
+    twap1hFormatted,
+    priceChange24hFormatted,
+    spreadMultiplier,
+    spreadRecommendation,
+    isLoading: volatilityLoading,
+  } = useVolatilityOracle();
+
   const [tokenX, setTokenX] = useState<Token>(tokens[0]);
   const [tokenY, setTokenY] = useState<Token>(tokens[1]);
   const [amountX, setAmountX] = useState('');
@@ -40,20 +75,78 @@ export default function CreatePositionPage() {
   const [showTokenYSelect, setShowTokenYSelect] = useState(false);
   const [showFractalSelect, setShowFractalSelect] = useState(false);
   const [step, setStep] = useState(1);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [nftAddress, setNftAddress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [commitmentHash, setCommitmentHash] = useState<string | null>(null);
+
 
   const handleCreatePosition = async () => {
+    if (!isConnected) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate transaction
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    setIsLoading(false);
-    setStep(3);
+    setError(null);
+
+    try {
+      // Convert amounts to smallest units (considering decimals)
+      const amountXUnits = Math.floor(parseFloat(amountX) * Math.pow(10, tokenX.decimals));
+      const amountYUnits = Math.floor(parseFloat(amountY) * Math.pow(10, tokenY.decimals));
+      const priceCenterUnits = Math.floor(parseFloat(priceCenter) * 1000000); // 6 decimal precision
+      const spreadUnits = Math.floor(parseFloat(spread) * 1000000);
+
+      const result = await mintPosition({
+        amountX: amountXUnits,
+        amountY: amountYUnits,
+        priceCenter: priceCenterUnits,
+        spread: spreadUnits,
+        fractalType: selectedFractal.id,
+        depth: depth,
+        pair: `${tokenX.symbol}/${tokenY.symbol}`,
+        fractalTypeName: selectedFractal.name,
+      });
+
+      if (result.success) {
+        setTxHash(result.hash || null);
+        setNftAddress(result.tokenAddress || null);
+
+        // Store the secret for this position so user can prove ownership later
+        if (result.tokenAddress && positionSecret) {
+          storePositionSecret(result.tokenAddress, positionSecret);
+        }
+
+        setStep(3);
+      } else {
+        setError(result.error || 'Transaction failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create position');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const generateZKProof = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsLoading(false);
-    setStep(2);
+    setError(null);
+
+    try {
+      // Generate a new secret for this position
+      const secret = generatePositionSecret();
+      setPositionSecret(secret);
+
+      // Generate commitment from the secret (Poseidon hash)
+      const commitment = await generatePositionCommitment(secret);
+
+      setCommitmentHash(commitment.slice(0, 10) + '...' + commitment.slice(-4));
+      setStep(2);
+    } catch (err) {
+      setError('Failed to generate ZK commitment');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const totalLiquidity = Math.sqrt(
@@ -287,6 +380,62 @@ export default function CreatePositionPage() {
                     </div>
                   </div>
 
+                  {/* Volatility Indicator */}
+                  <div className="mb-6 p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs tracking-widest uppercase text-gray-500">
+                          Market Volatility
+                        </span>
+                      </div>
+                      {volatilityLoading ? (
+                        <span className="text-xs text-gray-500">Loading...</span>
+                      ) : (
+                        <span className={`text-sm font-medium ${
+                          volatilityBucket === 0 ? 'text-green-400' :
+                          volatilityBucket === 1 ? 'text-yellow-400' :
+                          volatilityBucket === 2 ? 'text-orange-400' :
+                          'text-red-400'
+                        }`}>
+                          {volatilityLabel}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600 text-xs">TWAP (1h)</span>
+                        <p className="text-white">{twap1hFormatted}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 text-xs">24h Change</span>
+                        <p className="flex items-center gap-1">
+                          {volatilityMetrics && volatilityMetrics.priceChange24h > 0 ? (
+                            <TrendingUp className="w-3 h-3 text-green-400" />
+                          ) : volatilityMetrics && volatilityMetrics.priceChange24h < 0 ? (
+                            <TrendingDown className="w-3 h-3 text-red-400" />
+                          ) : (
+                            <Minus className="w-3 h-3 text-gray-400" />
+                          )}
+                          <span className={
+                            volatilityMetrics && volatilityMetrics.priceChange24h > 0
+                              ? 'text-green-400'
+                              : volatilityMetrics && volatilityMetrics.priceChange24h < 0
+                                ? 'text-red-400'
+                                : 'text-white'
+                          }>
+                            {priceChange24hFormatted}
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 text-xs">Spread Multiplier</span>
+                        <p className="text-white">{spreadMultiplier}x</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">{volatilityDescription}</p>
+                  </div>
+
                   {/* Price Center & Spread */}
                   <div className="mb-8 grid grid-cols-2 gap-4">
                     <div>
@@ -303,6 +452,14 @@ export default function CreatePositionPage() {
                     <div>
                       <label className="text-xs tracking-widest uppercase text-gray-500 mb-4 block">
                         Spread
+                        {spreadMultiplier > 1 && (
+                          <button
+                            onClick={() => setSpread((parseFloat(spread) * spreadMultiplier).toFixed(0))}
+                            className="ml-2 text-xs text-white/60 hover:text-white underline"
+                          >
+                            Apply {spreadMultiplier}x
+                          </button>
+                        )}
                       </label>
                       <input
                         type="number"
@@ -310,6 +467,11 @@ export default function CreatePositionPage() {
                         onChange={(e) => setSpread(e.target.value)}
                         className="w-full px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5 outline-none focus:border-white/30 transition-colors"
                       />
+                      {spreadMultiplier > 1 && (
+                        <p className="text-xs text-yellow-400/80 mt-1">
+                          {spreadRecommendation}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -370,7 +532,7 @@ export default function CreatePositionPage() {
                   <div className="bg-white/[0.02] rounded-xl p-4 mb-8 text-left">
                     <div className="flex justify-between py-2 border-b border-white/5">
                       <span className="text-gray-500">Commitment Hash</span>
-                      <span className="font-mono text-xs">0x7f3a...9c2d</span>
+                      <span className="font-mono text-xs">{commitmentHash || '0x7f3a...9c2d'}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-white/5">
                       <span className="text-gray-500">Proof Size</span>
@@ -382,25 +544,60 @@ export default function CreatePositionPage() {
                     </div>
                   </div>
 
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleCreatePosition}
-                    disabled={isLoading}
-                    className="w-full py-4 bg-white text-black rounded-2xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Deploying...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        Deploy Position
-                      </>
-                    )}
-                  </motion.button>
+                  {error && (
+                    <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2 text-left">
+                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      <span className="text-sm text-red-400">{error}</span>
+                    </div>
+                  )}
+
+                  {!isConnected ? (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={login}
+                      disabled={walletLoading}
+                      className="w-full py-4 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-2xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {walletLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Wallet className="w-4 h-4" />
+                          Sign In to Deploy
+                        </>
+                      )}
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleCreatePosition}
+                      disabled={isLoading}
+                      className="w-full py-4 bg-white text-black rounded-2xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Deploying...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Deploy Position
+                        </>
+                      )}
+                    </motion.button>
+                  )}
+
+                  {isConnected && address && (
+                    <p className="text-xs text-gray-500 mt-3">
+                      Connected: {address.slice(0, 6)}...{address.slice(-4)}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -415,13 +612,28 @@ export default function CreatePositionPage() {
                   </p>
 
                   <div className="bg-white/[0.02] rounded-xl p-4 mb-8 text-left">
-                    <div className="flex justify-between py-2 border-b border-white/5">
-                      <span className="text-gray-500">Position ID</span>
-                      <span className="font-mono">#42</span>
-                    </div>
+                    {txHash && (
+                      <div className="flex justify-between py-2 border-b border-white/5">
+                        <span className="text-gray-500">Transaction</span>
+                        <a
+                          href={`https://explorer.movementlabs.xyz/txn/${txHash}?network=testnet`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-cyan-400 hover:text-cyan-300"
+                        >
+                          {txHash.slice(0, 8)}...{txHash.slice(-6)}
+                        </a>
+                      </div>
+                    )}
                     <div className="flex justify-between py-2 border-b border-white/5">
                       <span className="text-gray-500">NFT Address</span>
-                      <span className="font-mono text-xs">0x1bb2...29da</span>
+                      <span className="font-mono text-xs">
+                        {nftAddress ? `${nftAddress.slice(0, 8)}...${nftAddress.slice(-6)}` : 'Pending...'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-white/5">
+                      <span className="text-gray-500">Fractal Type</span>
+                      <span>{selectedFractal.name}</span>
                     </div>
                     <div className="flex justify-between py-2">
                       <span className="text-gray-500">Total Liquidity</span>

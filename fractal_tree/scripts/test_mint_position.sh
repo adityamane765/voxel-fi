@@ -38,7 +38,7 @@ movement move run \
     u64:500 \
     u8:0 \
     u8:4 \
-    --assume-yes \
+  --assume-yes \
   2>&1 | tee "$TMP_OUT"
 
 # Extract transaction hash

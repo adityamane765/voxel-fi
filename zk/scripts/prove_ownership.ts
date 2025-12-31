@@ -11,12 +11,12 @@ async function main() {
 
   const { proof, publicSignals } = await groth16.fullProve(
     input,
-    "build/ownership_js/ownership.wasm",
-    "build/ownership.zkey"
+    "build_ow/ownership_js/ownership.wasm",
+    "build_ow/ownership.zkey"
   );
 
   const vk = JSON.parse(
-    fs.readFileSync("build/ownership_vk.json", "utf8")
+    fs.readFileSync("build_ow/ownership_vk.json", "utf8")
   );
 
   const verified = await groth16.verify(vk, publicSignals, proof);

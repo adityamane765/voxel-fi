@@ -20,11 +20,11 @@ echo "=============================="
 
 echo ""
 echo "→ Fetching position data from NFT..."
-POSITION_DATA=$(movement move view \
+POSITION_DATA=$(movement move view --assume-yes \
   --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::fractal_position::get_position_data \
-  --args address:$TOKEN_OBJECT_ADDRESS) \
-  --assume-yes
+  --args address:$TOKEN_OBJECT_ADDRESS \
+  --assume-yes)
 echo "$POSITION_DATA"
 
 # Extract position_id from the returned data (first field in the struct)
@@ -65,27 +65,25 @@ movement move run \
 
 echo ""
 echo "→ Checking proof verification status..."
-VERIFIED=$(movement move view \
+VERIFIED=$(movement move view --assume-yes \
   --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::zk_verifier::is_proof_verified \
   --args \
     address:${MODULE_ADDRESS} \
-    u64:$POSITION_ID) \
-  --assume-yes
+    u64:$POSITION_ID)
 
 echo "Verification status: $VERIFIED"
 
 echo ""
 echo "→ Attempting replay (should fail with E_NULLIFIER_USED)..."
 set +e
-REPLAY_OUTPUT=$(movement move run \
+REPLAY_OUTPUT=$(movement move run --assume-yes \
   --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::zk_verifier::verify_proof \
   --args \
     address:${MODULE_ADDRESS} \
     u64:$POSITION_ID \
-    bool:true 2>&1) \
-  --assume-yes
+    bool:true 2>&1)
 
 if echo "$REPLAY_OUTPUT" | grep -q "E_NULLIFIER_USED\|error"; then
   echo "✓ Replay correctly prevented (expected behavior)"

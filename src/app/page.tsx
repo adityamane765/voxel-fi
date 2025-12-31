@@ -4,7 +4,8 @@ import { useRef, useEffect, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Shield, Zap, Layers, Lock, FileCheck, Rocket } from 'lucide-react';
+import { ArrowRight, Shield, Zap, Layers, Lock, FileCheck, Rocket, Play, Clock } from 'lucide-react';
+import { OnboardingFlow } from '@/components/OnboardingFlow';
 
 const VoxelScene = dynamic(() => import('@/components/VoxelScene'), {
   ssr: false,
@@ -79,8 +80,19 @@ const steps = [
 ];
 
 export default function HomePage() {
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   return (
     <div className="min-h-screen bg-black text-white">
+      {/* 60-Second Demo Onboarding Flow */}
+      <OnboardingFlow
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={() => {
+          // Navigate to create page after onboarding
+          window.location.href = '/create';
+        }}
+      />
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-black/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -137,8 +149,16 @@ export default function HomePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
-                className="flex gap-4 mb-16"
+                className="flex flex-wrap gap-4 mb-16"
               >
+                <button
+                  onClick={() => setShowOnboarding(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-cyan-500/20"
+                >
+                  <Play className="w-4 h-4" />
+                  60s Demo
+                  <span className="ml-1 px-2 py-0.5 text-xs bg-white/20 rounded-full">Privy</span>
+                </button>
                 <Link href="/create">
                   <button className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors">
                     Launch App
@@ -316,12 +336,21 @@ export default function HomePage() {
             <p className="text-gray-400 mb-10 max-w-lg mx-auto">
               Join the future of DeFi where your strategies stay yours. No more front-running. No more copycat traders.
             </p>
-            <Link href="/create">
-              <button className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors">
-                Start Building
-                <ArrowRight className="w-4 h-4" />
+            <div className="flex flex-wrap justify-center gap-4">
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-cyan-500/20"
+              >
+                <Clock className="w-5 h-5" />
+                Try in 60 Seconds
               </button>
-            </Link>
+              <Link href="/create">
+                <button className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors">
+                  Launch App
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+            </div>
           </motion.div>
         </div>
       </section>

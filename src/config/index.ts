@@ -17,6 +17,8 @@ export const config = {
   movement: {
     rpc: 'https://testnet.movementnetwork.xyz/v1',
     chainId: 250,
+    name: 'Movement Testnet',
+    explorerUrl: 'https://explorer.movementnetwork.xyz',
   },
 
   // Contract Module Address - Update this after deployment

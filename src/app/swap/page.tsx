@@ -1,43 +1,115 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowDownUp, Settings, Info, Loader2, ChevronDown } from 'lucide-react';
+import { ArrowDownUp, Settings, Info, Loader2, ChevronDown, Wallet, AlertCircle, CheckCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useVoxelFi } from '@/hooks';
 
 interface Token {
   symbol: string;
   name: string;
   icon: string;
   balance: string;
+  decimals: number;
 }
 
 const tokens: Token[] = [
-  { symbol: 'WETH', name: 'Wrapped ETH', icon: 'E', balance: '1.5' },
-  { symbol: 'USDC', name: 'USD Coin', icon: '$', balance: '5,000' },
-  { symbol: 'MOVE', name: 'Movement', icon: 'M', balance: '10,000' },
+  { symbol: 'WETH', name: 'Wrapped ETH', icon: 'E', balance: '0', decimals: 8 },
+  { symbol: 'USDC', name: 'USD Coin', icon: '$', balance: '0', decimals: 6 },
 ];
 
 export default function SwapPage() {
+  const {
+    isConnected,
+    address,
+    isLoading: walletLoading,
+    login,
+    swap,
+    getSwapQuote,
+    getVaultReserves,
+  } = useVoxelFi();
+
   const [fromToken, setFromToken] = useState<Token>(tokens[0]);
   const [toToken, setToToken] = useState<Token>(tokens[1]);
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [showFromTokens, setShowFromTokens] = useState(false);
   const [showToTokens, setShowToTokens] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [slippage, setSlippage] = useState(0.5); // 0.5%
+  const [error, setError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [txSuccess, setTxSuccess] = useState(false);
+  const [reserves, setReserves] = useState({ reserveX: 0, reserveY: 0 });
+  const [priceImpact, setPriceImpact] = useState(0);
+  const [minimumReceived, setMinimumReceived] = useState(0);
+  const [fee, setFee] = useState(0);
 
-  // Mock exchange rate calculation
-  const calculateOutput = (input: string) => {
+  // Load reserves on mount
+  useEffect(() => {
+    const loadReserves = async () => {
+      try {
+        const res = await getVaultReserves();
+        setReserves(res);
+      } catch (err) {
+        console.error('Failed to load reserves:', err);
+      }
+    };
+    loadReserves();
+  }, [getVaultReserves]);
+
+  // Calculate output with debounce
+  const calculateOutput = useCallback(async (input: string) => {
     const amount = parseFloat(input) || 0;
-    // Mock rate: 1 WETH = 3000 USDC
-    const rate = fromToken.symbol === 'WETH' ? 3000 : 1 / 3000;
-    return (amount * rate).toFixed(2);
-  };
+    if (amount <= 0) {
+      setToAmount('');
+      setPriceImpact(0);
+      setMinimumReceived(0);
+      setFee(0);
+      return;
+    }
+
+    setIsQuoteLoading(true);
+    try {
+      // Convert to smallest units
+      const amountInUnits = Math.floor(amount * Math.pow(10, fromToken.decimals));
+      const quote = await getSwapQuote(amountInUnits, slippage * 100);
+
+      // Convert back to display units
+      const outputAmount = quote.amountOut / Math.pow(10, toToken.decimals);
+      setToAmount(outputAmount.toFixed(toToken.decimals === 6 ? 2 : 6));
+      setPriceImpact(quote.priceImpact);
+      setMinimumReceived(quote.minimumReceived / Math.pow(10, toToken.decimals));
+      setFee(quote.fee / Math.pow(10, fromToken.decimals));
+    } catch (err) {
+      console.error('Quote error:', err);
+      // Fallback to simple calculation based on reserves
+      const spotPrice = reserves.reserveY / reserves.reserveX;
+      const estimatedOutput = amount * spotPrice * 0.997; // 0.3% fee
+      setToAmount(estimatedOutput.toFixed(2));
+      setFee(amount * 0.003);
+    } finally {
+      setIsQuoteLoading(false);
+    }
+  }, [fromToken, toToken, slippage, getSwapQuote, reserves]);
+
+  // Debounced input change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (fromAmount) {
+        calculateOutput(fromAmount);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fromAmount, calculateOutput]);
 
   const handleFromAmountChange = (value: string) => {
     setFromAmount(value);
-    setToAmount(calculateOutput(value));
+    setError(null);
+    setTxSuccess(false);
   };
 
   const handleSwapTokens = () => {
@@ -49,18 +121,44 @@ export default function SwapPage() {
   };
 
   const handleSwap = async () => {
-    setIsLoading(true);
-    // Simulate swap transaction
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsLoading(false);
-    // Reset form
-    setFromAmount('');
-    setToAmount('');
-  };
+    if (!isConnected) {
+      setError('Please connect your wallet first');
+      return;
+    }
 
-  const priceImpact = '0.05%';
-  const minimumReceived = toAmount ? (parseFloat(toAmount) * 0.995).toFixed(2) : '0';
-  const fee = fromAmount ? (parseFloat(fromAmount) * 0.003).toFixed(4) : '0';
+    if (!fromAmount || parseFloat(fromAmount) <= 0) {
+      setError('Please enter an amount');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setTxSuccess(false);
+
+    try {
+      const amountInUnits = Math.floor(parseFloat(fromAmount) * Math.pow(10, fromToken.decimals));
+      const minOutUnits = Math.floor(minimumReceived * Math.pow(10, toToken.decimals));
+      const direction = fromToken.symbol === 'WETH' ? 'xToY' : 'yToX';
+
+      const result = await swap(amountInUnits, minOutUnits, direction as 'xToY' | 'yToX');
+
+      if (result.success) {
+        setTxHash(result.hash || null);
+        setTxSuccess(true);
+        setFromAmount('');
+        setToAmount('');
+        // Reload reserves
+        const newReserves = await getVaultReserves();
+        setReserves(newReserves);
+      } else {
+        setError(result.error || 'Swap failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Swap failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black">
@@ -226,19 +324,30 @@ export default function SwapPage() {
                     Price Impact
                     <Info className="w-3 h-3" />
                   </span>
-                  <span className="text-green-400">{priceImpact}</span>
+                  <span className={priceImpact > 1 ? 'text-yellow-400' : 'text-green-400'}>
+                    {priceImpact.toFixed(2)}%
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Minimum received</span>
                   <span>
-                    {minimumReceived} {toToken.symbol}
+                    {minimumReceived.toFixed(toToken.decimals === 6 ? 2 : 6)} {toToken.symbol}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Fee (0.3%)</span>
                   <span>
-                    {fee} {fromToken.symbol}
+                    {fee.toFixed(fromToken.decimals === 8 ? 6 : 2)} {fromToken.symbol}
                   </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Slippage</span>
+                  <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="text-cyan-400 hover:text-cyan-300"
+                  >
+                    {slippage}%
+                  </button>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Route</span>
@@ -247,25 +356,115 @@ export default function SwapPage() {
               </motion.div>
             )}
 
+            {/* Slippage Settings */}
+            {showSettings && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-2 p-4 bg-white/[0.02] rounded-xl"
+              >
+                <div className="text-sm text-gray-500 mb-2">Slippage Tolerance</div>
+                <div className="flex gap-2">
+                  {[0.1, 0.5, 1.0].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setSlippage(val)}
+                      className={`px-3 py-1.5 rounded-lg text-sm ${
+                        slippage === val ? 'bg-white text-black' : 'bg-white/5 hover:bg-white/10'
+                      }`}
+                    >
+                      {val}%
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    value={slippage}
+                    onChange={(e) => setSlippage(parseFloat(e.target.value) || 0.5)}
+                    className="w-20 px-3 py-1.5 rounded-lg text-sm bg-white/5 border border-white/10 outline-none"
+                    placeholder="Custom"
+                  />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span className="text-sm text-red-400">{error}</span>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {txSuccess && txHash && (
+              <div className="mt-4 p-3 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <div className="text-sm">
+                  <span className="text-green-400">Swap successful! </span>
+                  <a
+                    href={`https://explorer.movementlabs.xyz/txn/${txHash}?network=testnet`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-400 hover:text-cyan-300"
+                  >
+                    View transaction
+                  </a>
+                </div>
+              </div>
+            )}
+
             {/* Swap Button */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleSwap}
-              disabled={!fromAmount || isLoading}
-              className="w-full mt-6 py-4 bg-white text-black rounded-2xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Swapping...
-                </>
-              ) : !fromAmount ? (
-                'Enter an amount'
-              ) : (
-                'Swap'
-              )}
-            </motion.button>
+            {!isConnected ? (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={login}
+                disabled={walletLoading}
+                className="w-full mt-6 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-2xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {walletLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="w-4 h-4" />
+                    Sign In to Swap
+                  </>
+                )}
+              </motion.button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSwap}
+                disabled={!fromAmount || isLoading || isQuoteLoading}
+                className="w-full mt-6 py-4 bg-white text-black rounded-2xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Swapping...
+                  </>
+                ) : isQuoteLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Getting quote...
+                  </>
+                ) : !fromAmount ? (
+                  'Enter an amount'
+                ) : (
+                  'Swap'
+                )}
+              </motion.button>
+            )}
+
+            {isConnected && address && (
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                Connected: {address.slice(0, 6)}...{address.slice(-4)}
+              </p>
+            )}
           </motion.div>
 
           {/* Info Card */}

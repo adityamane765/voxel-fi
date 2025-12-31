@@ -1,3 +1,3 @@
 #!/bin/bash
-export PROFILE=f8
-export MODULE_ADDRESS=0xfb32e4c8c950667e1ed2d4e42ea38a5dadbcfabc8a983dcf690e6ae6624d8a60
+export PROFILE=r1
+export MODULE_ADDRESS=0x1bb2b78e8e8d931a01789f0ab59e2a75f1eaa9838eeabb184a75a653f1c129da

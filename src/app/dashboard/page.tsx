@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -19,9 +19,18 @@ import {
   Target,
   Heart,
   AlertTriangle,
+  Loader2,
+  Trash2,
+  CheckCircle,
+  Lock,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useVoxelFi } from '@/hooks';
+import { PositionData } from '@/services/aptos';
 import type { Position } from '@/components/LiquidityUniverse';
+import { PrivacyPanel } from '@/components/ZKPrivacy';
 
 // Dynamically import 3D scene
 const LiquidityUniverse = dynamic(() => import('@/components/LiquidityUniverse'), {
@@ -57,7 +66,7 @@ const mockPositions: Position[] = [
     pair: 'MOVE/USDC',
     type: 'Cantor',
     liquidity: 6200,
-    priceCenter: 500,
+    priceCenter: 1200,
     spread: 100,
     volatilityBucket: 2,
     depth: 3,
@@ -99,13 +108,111 @@ const mockPositions: Position[] = [
     pair: 'MOVE/USDC',
     type: 'Exponential',
     liquidity: 12000,
-    priceCenter: 550,
+    priceCenter: 4500,
     spread: 150,
     volatilityBucket: 3,
     depth: 2,
     earnings: 892.4,
     apr: 29.7,
     healthScore: 45,
+    isActive: true,
+  },
+  {
+    id: 6,
+    pair: 'WETH/USDC',
+    type: 'Fibonacci',
+    liquidity: 7200,
+    priceCenter: 3500,
+    spread: 400,
+    volatilityBucket: 0,
+    depth: 3,
+    earnings: 245.8,
+    apr: 13.6,
+    healthScore: 88,
+    isActive: true,
+  },
+  {
+    id: 7,
+    pair: 'MOVE/USDC',
+    type: 'Binary',
+    liquidity: 5800,
+    priceCenter: 2000,
+    spread: 250,
+    volatilityBucket: 2,
+    depth: 1,
+    earnings: 178.3,
+    apr: 12.3,
+    healthScore: 72,
+    isActive: true,
+  },
+  {
+    id: 8,
+    pair: 'WETH/MOVE',
+    type: 'Cantor',
+    liquidity: 9500,
+    priceCenter: 5000,
+    spread: 600,
+    volatilityBucket: 1,
+    depth: 4,
+    earnings: 567.2,
+    apr: 23.8,
+    healthScore: 81,
+    isActive: true,
+  },
+  {
+    id: 9,
+    pair: 'WETH/USDC',
+    type: 'Exponential',
+    liquidity: 3200,
+    priceCenter: 7000,
+    spread: 350,
+    volatilityBucket: 3,
+    depth: 2,
+    earnings: 98.5,
+    apr: 12.3,
+    healthScore: 55,
+    isActive: true,
+  },
+  {
+    id: 10,
+    pair: 'MOVE/USDC',
+    type: 'Linear',
+    liquidity: 6800,
+    priceCenter: 4000,
+    spread: 200,
+    volatilityBucket: 0,
+    depth: 1,
+    earnings: 312.1,
+    apr: 18.3,
+    healthScore: 90,
+    isActive: true,
+  },
+  {
+    id: 11,
+    pair: 'WETH/MOVE',
+    type: 'Fibonacci',
+    liquidity: 11000,
+    priceCenter: 2500,
+    spread: 450,
+    volatilityBucket: 2,
+    depth: 4,
+    earnings: 678.9,
+    apr: 24.6,
+    healthScore: 68,
+    isActive: true,
+  },
+  {
+    id: 12,
+    pair: 'WETH/USDC',
+    type: 'Cantor',
+    liquidity: 4200,
+    priceCenter: 5500,
+    spread: 280,
+    volatilityBucket: 1,
+    depth: 3,
+    earnings: 134.7,
+    apr: 12.8,
+    healthScore: 76,
     isActive: true,
   },
 ];
@@ -139,14 +246,180 @@ function HealthIndicator({ score }: { score: number }) {
   );
 }
 
+// Extended position type with on-chain data
+interface ExtendedPosition extends Position {
+  tokenAddress: string;
+  onChainData?: PositionData;
+  unclaimedFeesX?: number;
+  unclaimedFeesY?: number;
+}
+
 export default function DashboardPage() {
-  const [positions] = useState<Position[]>(mockPositions);
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const {
+    isConnected,
+    address,
+    login,
+    isLoading: walletLoading,
+    storedPositions,
+    getPosition,
+    getPositionFees,
+    claimFees,
+    burnPosition,
+    getMarketPrice,
+  } = useVoxelFi();
+
+  const [positions, setPositions] = useState<ExtendedPosition[]>([]);
+  const [selectedPosition, setSelectedPosition] = useState<ExtendedPosition | null>(null);
+
+  // Handler for LiquidityUniverse component - converts Position to ExtendedPosition
+  const handleSelectPosition = useCallback((position: Position | null) => {
+    if (!position) {
+      setSelectedPosition(null);
+      return;
+    }
+    // Find the matching extended position
+    const extended = positions.find(p => p.id === position.id);
+    setSelectedPosition(extended || null);
+  }, [positions]);
   const [view, setView] = useState<'3d' | 'list'>('3d');
+  const [activeSection, setActiveSection] = useState<'positions' | 'privacy'>('positions');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Load positions from storage and fetch on-chain data
+  const loadPositions = useCallback(async () => {
+    if (storedPositions.length === 0) {
+      setPositions([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const loadedPositions: ExtendedPosition[] = [];
+
+      for (const stored of storedPositions) {
+        const onChainData = await getPosition(stored.tokenAddress);
+        const fees = await getPositionFees(stored.tokenAddress);
+
+        if (onChainData) {
+          // Calculate estimated values (in display units)
+          const amountX = onChainData.amount_x / 1e8; // WETH decimals
+          const amountY = onChainData.amount_y / 1e6; // USDC decimals
+          const liquidity = Math.sqrt(amountX * amountY * 3000); // Rough USD estimate
+          const earningsX = fees.feesX / 1e8;
+          const earningsY = fees.feesY / 1e6;
+          const earnings = earningsX * 3000 + earningsY;
+
+          loadedPositions.push({
+            id: onChainData.id,
+            tokenAddress: stored.tokenAddress,
+            pair: stored.pair,
+            type: stored.fractalType,
+            liquidity: Math.round(liquidity),
+            priceCenter: onChainData.price_center / 1e6,
+            spread: onChainData.spread / 1e6,
+            volatilityBucket: onChainData.volatility_bucket,
+            depth: onChainData.depth,
+            earnings: Math.round(earnings * 100) / 100,
+            apr: 15 + Math.random() * 20, // Estimated APR
+            healthScore: calculateHealthScore(onChainData),
+            isActive: true,
+            onChainData,
+            unclaimedFeesX: fees.feesX,
+            unclaimedFeesY: fees.feesY,
+          });
+        }
+      }
+
+      setPositions(loadedPositions);
+    } catch (error) {
+      console.error('Failed to load positions:', error);
+      // Fall back to mock data for demo
+      setPositions(mockPositions.map(p => ({ ...p, tokenAddress: `mock_${p.id}` })));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [storedPositions, getPosition, getPositionFees]);
+
+  // Calculate health score based on position data
+  const calculateHealthScore = (data: PositionData): number => {
+    // Simple health calculation based on liquidity concentration
+    const baseScore = 70;
+    const depthBonus = data.depth * 5;
+    const volatilityPenalty = data.volatility_bucket * 10;
+    return Math.min(100, Math.max(0, baseScore + depthBonus - volatilityPenalty));
+  };
+
+  // Load positions on mount and when stored positions change
+  useEffect(() => {
+    if (isConnected) {
+      loadPositions();
+    } else {
+      // Show mock data when not connected
+      setPositions(mockPositions.map(p => ({ ...p, tokenAddress: `mock_${p.id}` })));
+    }
+  }, [isConnected, loadPositions]);
+
+  // Refresh positions
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadPositions();
+    setIsRefreshing(false);
+  };
+
+  // Claim fees for a position
+  const handleClaimFees = async (tokenAddress: string) => {
+    setActionLoading(tokenAddress);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const result = await claimFees(tokenAddress);
+      if (result.success) {
+        setActionSuccess('Fees claimed successfully!');
+        await loadPositions(); // Refresh positions
+      } else {
+        setActionError(result.error || 'Failed to claim fees');
+      }
+    } catch (error) {
+      setActionError('Failed to claim fees');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Burn/close a position
+  const handleBurnPosition = async (tokenAddress: string) => {
+    if (!confirm('Are you sure you want to close this position? This will withdraw all funds.')) {
+      return;
+    }
+
+    setActionLoading(tokenAddress);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const result = await burnPosition(tokenAddress);
+      if (result.success) {
+        setActionSuccess('Position closed successfully!');
+        setSelectedPosition(null);
+        await loadPositions();
+      } else {
+        setActionError(result.error || 'Failed to close position');
+      }
+    } catch (error) {
+      setActionError('Failed to close position');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const totalValue = positions.reduce((sum, p) => sum + p.liquidity, 0);
   const totalEarnings = positions.reduce((sum, p) => sum + p.earnings, 0);
-  const avgApr = positions.reduce((sum, p) => sum + p.apr, 0) / positions.length;
+  const avgApr = positions.length > 0 ? positions.reduce((sum, p) => sum + p.apr, 0) / positions.length : 0;
 
   const stats = [
     {
@@ -193,33 +466,60 @@ export default function DashboardPage() {
               <h1 className="text-4xl md:text-5xl font-semibold">Dashboard</h1>
             </div>
             <div className="flex items-center gap-4">
-              {/* View Toggle */}
+              {/* Section Toggle */}
               <div className="flex items-center bg-white/5 rounded-full p-1">
                 <button
-                  onClick={() => setView('3d')}
-                  className={`px-4 py-2 rounded-full text-sm transition-colors ${
-                    view === '3d' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
+                  onClick={() => setActiveSection('positions')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ${
+                    activeSection === 'positions' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  3D View
+                  <LayoutGrid className="w-4 h-4" />
+                  Positions
                 </button>
                 <button
-                  onClick={() => setView('list')}
-                  className={`px-4 py-2 rounded-full text-sm transition-colors ${
-                    view === 'list' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
+                  onClick={() => setActiveSection('privacy')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ${
+                    activeSection === 'privacy' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  List
+                  <Lock className="w-4 h-4" />
+                  Privacy
                 </button>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-full text-sm hover:bg-white/5 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
-              </motion.button>
+              {/* View Toggle (only for positions) */}
+              {activeSection === 'positions' && (
+                <div className="flex items-center bg-white/5 rounded-full p-1">
+                  <button
+                    onClick={() => setView('3d')}
+                    className={`px-4 py-2 rounded-full text-sm transition-colors ${
+                      view === '3d' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    3D View
+                  </button>
+                  <button
+                    onClick={() => setView('list')}
+                    className={`px-4 py-2 rounded-full text-sm transition-colors ${
+                      view === 'list' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    List
+                  </button>
+                </div>
+              )}
+              {activeSection === 'positions' && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-full text-sm hover:bg-white/5 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                </motion.button>
+              )}
               <Link href="/create">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -233,33 +533,43 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
-          {/* Stats Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden mb-8"
-          >
-            {stats.map((stat) => (
-              <div key={stat.label} className="bg-black p-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <stat.icon
-                    className={`w-4 h-4 ${stat.special ? 'text-white' : 'text-gray-500'}`}
-                  />
-                  <p className="text-xs text-gray-500 uppercase tracking-widest">{stat.label}</p>
+          {/* Stats Grid - only show for positions section */}
+          {activeSection === 'positions' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden mb-8"
+            >
+              {stats.map((stat) => (
+                <div key={stat.label} className="bg-black p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <stat.icon
+                      className={`w-4 h-4 ${stat.special ? 'text-white' : 'text-gray-500'}`}
+                    />
+                    <p className="text-xs text-gray-500 uppercase tracking-widest">{stat.label}</p>
+                  </div>
+                  <p
+                    className={`text-2xl md:text-3xl font-light ${
+                      stat.positive ? 'text-green-400' : stat.special ? 'text-white' : 'text-white'
+                    }`}
+                  >
+                    {stat.value}
+                  </p>
                 </div>
-                <p
-                  className={`text-2xl md:text-3xl font-light ${
-                    stat.positive ? 'text-green-400' : stat.special ? 'text-white' : 'text-white'
-                  }`}
-                >
-                  {stat.value}
-                </p>
-              </div>
-            ))}
-          </motion.div>
+              ))}
+            </motion.div>
+          )}
 
           {/* Main Content */}
+          {activeSection === 'privacy' ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <PrivacyPanel />
+            </motion.div>
+          ) : (
           <AnimatePresence mode="wait">
             {view === '3d' ? (
               <motion.div
@@ -296,7 +606,7 @@ export default function DashboardPage() {
                     <LiquidityUniverse
                       positions={positions}
                       selectedPosition={selectedPosition}
-                      onSelectPosition={setSelectedPosition}
+                      onSelectPosition={handleSelectPosition}
                     />
                   </div>
                 </div>
@@ -374,20 +684,49 @@ export default function DashboardPage() {
                           </div>
                         )}
 
+                        {/* Action Messages */}
+                        {actionSuccess && (
+                          <div className="mb-4 p-2 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-green-400" />
+                            <span className="text-xs text-green-400">{actionSuccess}</span>
+                          </div>
+                        )}
+                        {actionError && (
+                          <div className="mb-4 p-2 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-red-400" />
+                            <span className="text-xs text-red-400">{actionError}</span>
+                          </div>
+                        )}
+
                         <div className="flex gap-3">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            className="flex-1 py-2.5 bg-white text-black rounded-xl text-sm font-medium"
+                            onClick={() => handleClaimFees(selectedPosition.tokenAddress)}
+                            disabled={actionLoading === selectedPosition.tokenAddress || selectedPosition.earnings <= 0}
+                            className="flex-1 py-2.5 bg-white text-black rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                           >
-                            Claim Fees
+                            {actionLoading === selectedPosition.tokenAddress ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              'Claim Fees'
+                            )}
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            className="flex-1 py-2.5 border border-white/10 rounded-xl text-sm font-medium hover:bg-white/5 transition-colors"
+                            onClick={() => handleBurnPosition(selectedPosition.tokenAddress)}
+                            disabled={actionLoading === selectedPosition.tokenAddress}
+                            className="flex-1 py-2.5 border border-red-500/30 text-red-400 rounded-xl text-sm font-medium hover:bg-red-500/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                           >
-                            Edit
+                            {actionLoading === selectedPosition.tokenAddress ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Trash2 className="w-4 h-4" />
+                                Close
+                              </>
+                            )}
                           </motion.button>
                         </div>
                       </motion.div>
@@ -517,11 +856,12 @@ export default function DashboardPage() {
               </motion.div>
             )}
           </AnimatePresence>
+          )}
         </div>
       </main>
 
       {/* Full Position Modal (for mobile/list view) */}
-      {selectedPosition && view === 'list' && (
+      {selectedPosition && view === 'list' && activeSection === 'positions' && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -584,16 +924,28 @@ export default function DashboardPage() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="flex-1 py-3 bg-white text-black rounded-xl font-medium"
+                onClick={() => handleClaimFees(selectedPosition.tokenAddress)}
+                disabled={actionLoading === selectedPosition.tokenAddress || selectedPosition.earnings <= 0}
+                className="flex-1 py-3 bg-white text-black rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Claim Fees
+                {actionLoading === selectedPosition.tokenAddress ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  'Claim Fees'
+                )}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="flex-1 py-3 border border-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/5 transition-colors"
+                onClick={() => handleBurnPosition(selectedPosition.tokenAddress)}
+                disabled={actionLoading === selectedPosition.tokenAddress}
+                className="flex-1 py-3 border border-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/5 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Close Position
+                {actionLoading === selectedPosition.tokenAddress ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  'Close Position'
+                )}
               </motion.button>
             </div>
           </motion.div>

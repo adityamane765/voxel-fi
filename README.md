@@ -1,206 +1,330 @@
-# VoxelFi — Private Fractal Liquidity
+# VoxelFi — ZK-Powered Spatial Liquidity Protocol
 
-**Privacy-first liquidity provisioning with fractal mathematics and zero-knowledge proofs**
+**Trade, visualize, and fracture liquidity positions as NFTs in a 3D spatial universe**
 
----
-
-## 🎯 The Problem
-
-DeFi liquidity is public by default. On most concentrated liquidity AMMs, every LP reveals:
-
-- ❌ **Center price** — competitors copy your positioning
-- ❌ **Range boundaries** — bots exploit your limits  
-- ❌ **Liquidity depth** — reveals your capital allocation
-- ❌ **Curve shape** — telegraphs your market view
-
-**Result:** Sandwich bots, front-runners, and copycat traders feast on your transparent strategy. You take the risk, they take the profit.
+[![Built on Movement](https://img.shields.io/badge/Built%20on-Movement-blue)](https://movementlabs.xyz)
+[![Privy Wallets](https://img.shields.io/badge/Wallets-Privy-purple)](https://privy.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
 
-## ✨ The Solution: VoxelFi
+## What is VoxelFi?
 
-VoxelFi flips the script with **private fractal liquidity**:
+VoxelFi reimagines DeFi liquidity as a **3D spatial experience**. Instead of abstract numbers in a table, your liquidity positions become **glowing voxels** in an interactive universe that you can explore, trade, and fracture.
 
-### 🔐 Zero-Knowledge Privacy
-- Your parameters stay local, never touch the blockchain
-- Only cryptographic commitments stored on-chain
-- ZK proofs verify validity without revealing strategy
-- Attackers see liquidity exists, not how it's structured
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                    THE LIQUIDITY UNIVERSE                           │
+│                                                                     │
+│           ◆                              ◇                          │
+│              ◆     ●                         ◇                      │
+│         ◆              ●    Your Position        ◇                  │
+│                   ●  ══════════▶  ◈  ◀══════════                   │
+│              ◆         ●              ◇        ◇                    │
+│                  ◆          ●    ◇                                  │
+│        ◆                            ◇                               │
+│                                                                     │
+│    ◆ = High Liquidity    ● = Medium    ◇ = Low    ◈ = Your NFT    │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-### 📐 Fractal Mathematics  
-- Self-similar curves provide infinite price coverage in one transaction
-- Dense liquidity where you predict price action
-- Smooth decay prevents sudden liquidity cliffs
-- Recursive structure = 100x gas savings vs traditional multi-range positions
+### Core Innovation: Position NFTs
 
-### 🚀 Privy Embedded Wallets
-- No seed phrases, no browser extensions
-- Login with email or social accounts
+Every liquidity position is minted as a **tradable NFT** that:
+- Lives in a **3D spatial index** (price × volatility × depth)
+- Can be **fractured** into smaller child NFTs
+- Earns **swap fees** proportionally
+- Supports **ZK privacy proofs**
+
+---
+
+## Key Features
+
+### 1. Spatial Position NFTs
+Your liquidity isn't just numbers—it's a **location in 3D space**. Each position is indexed by:
+- **X-axis:** Price bucket (where your liquidity is centered)
+- **Y-axis:** Volatility classification (stable, medium, volatile)
+- **Z-axis:** Fractal depth (recursion level)
+
+### 2. Fractal NFT System
+Split your positions into smaller, independently tradable pieces:
+```
+       Parent NFT ($10,000)
+              │
+    ┌─────────┼─────────┐
+    │         │         │
+Child A    Child B    Child C
+ $4,000     $3,500     $2,500
+```
+Each child NFT:
+- Inherits proportional liquidity
+- Earns its own fees
+- Can be traded or fractured further
+
+### 3. Zero-Knowledge Privacy
+Prove things about your position without revealing details:
+- **Private Ownership:** Prove you own a position without revealing your address
+- **Private Value:** Prove your position is worth ">$10,000" without showing the exact amount
+- **Private Strategy:** Your fractal parameters stay encrypted
+
+### 4. 3D Liquidity Universe
+An immersive dashboard where:
+- Positions appear as **glowing voxels**
+- Size = liquidity depth
+- Color = health score / APR
+- Click to interact, claim fees, or fracture
+
+### 5. Seamless Privy Onboarding
+- Sign in with **Google, Twitter, Discord, or Email**
 - Embedded wallet created automatically
-- Web2 UX with Web3 security
-
-**Capital efficiency without surveillance.**
-
----
-
-## 🏗️ Project Structure
-
-```
-voxel-fi/
-├── src/                    # Frontend (React + TypeScript + Vite)
-│   ├── components/         # UI components
-│   ├── services/           # API & blockchain services
-│   ├── context/            # Wallet context
-│   ├── hooks/              # Custom React hooks
-│   └── config/             # Configuration
-├── api/                    # Express.js Backend
-│   ├── src/
-│   │   ├── routes/         # API endpoints
-│   │   ├── aptos/          # Movement Network client
-│   │   └── zk/             # ZK proof generation
-│   └── package.json
-├── fractal_tree/           # Move Smart Contracts
-│   ├── sources/
-│   │   ├── fractal_position.move
-│   │   ├── vault.move
-│   │   └── zk_verifier.move
-│   └── Move.toml
-├── zk/                     # Zero-Knowledge Circuits
-│   ├── circuits/           # Circom circuits
-│   ├── handler/            # Proof generation handlers
-│   └── build_*/            # Compiled circuits
-└── docs/                   # Documentation
-```
+- No seed phrases, no extensions
+- **60 seconds** from zero to trading
 
 ---
 
-## 🚀 Quick Start
+## How It Works
 
-### Frontend (Development)
+### For Liquidity Providers
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     LIQUIDITY PROVIDER FLOW                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. SIGN IN                                                         │
+│     └── Social login via Privy (Google/Twitter/Email)              │
+│                                                                     │
+│  2. DEPOSIT                                                         │
+│     └── Add WETH + USDC to the protocol                            │
+│                                                                     │
+│  3. CONFIGURE                                                       │
+│     ├── Set price center (where you expect trading)                │
+│     ├── Set spread (price range coverage)                          │
+│     ├── Choose fractal type (Fibonacci, Cantor, etc.)             │
+│     └── Select depth (1-4 levels of recursion)                     │
+│                                                                     │
+│  4. MINT NFT                                                        │
+│     └── Your position becomes a tradable NFT in the spatial index  │
+│                                                                     │
+│  5. EARN FEES                                                       │
+│     └── Every swap through your range pays you 0.25%               │
+│                                                                     │
+│  6. MANAGE                                                          │
+│     ├── Claim accumulated fees anytime                             │
+│     ├── Fracture into smaller NFTs                                 │
+│     ├── Trade your position NFT                                    │
+│     └── Burn to withdraw liquidity                                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### For Traders
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         TRADER FLOW                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. Connect wallet (Privy social login)                            │
+│                                                                     │
+│  2. Enter swap amount (e.g., 100 USDC → WETH)                      │
+│                                                                     │
+│  3. See quote with:                                                 │
+│     ├── Expected output                                             │
+│     ├── Price impact                                                │
+│     ├── Minimum received (after slippage)                          │
+│     └── Fee breakdown                                               │
+│                                                                     │
+│  4. Execute swap (signed with embedded wallet)                     │
+│                                                                     │
+│  5. Receive tokens in ~2 seconds                                    │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Fee Structure
+
+| Fee Type | Rate | Recipient |
+|----------|------|-----------|
+| **Swap Fee** | 0.30% | Split below |
+| → LP Share | 0.25% | Position NFT holders |
+| → Protocol | 0.05% | Treasury |
+
+### Fee Distribution
+Fees are distributed based on **geometric mean liquidity**:
+```
+your_share = sqrt(your_x × your_y) / total_liquidity × fees
+```
+
+This ensures fair distribution regardless of token price ratios.
+
+---
+
+## Fractal Types
+
+| Type | Pattern | Best Use Case |
+|------|---------|---------------|
+| **Binary** | Even 50/50 splits | Simple, predictable |
+| **Fibonacci** | Golden ratio (61.8%) | Market making |
+| **Linear** | Uniform distribution | Wide coverage |
+| **Exponential** | Center-heavy | High conviction |
+| **Cantor** | Edge-heavy gaps | Volatility hedging |
+
+---
+
+## Technical Architecture
+
+### Smart Contracts (Movement/Aptos)
+
+```
+fractal_position.move    ─── Position lifecycle, NFT minting/burning
+        │
+        ├──▶ vault.move           ─── Token custody, swap execution
+        │
+        ├──▶ spatial_octree.move  ─── 3D Morton-encoded spatial index
+        │
+        ├──▶ fee_distributor.move ─── Global accumulator fee system
+        │
+        └──▶ zk_verifier.move     ─── Commitment & nullifier storage
+```
+
+### Frontend (Next.js + React Three Fiber)
+
+```
+src/
+├── app/                    # Pages (create, swap, dashboard)
+├── components/
+│   ├── LiquidityUniverse   # 3D visualization
+│   ├── OnboardingFlow      # 60-second demo
+│   └── WalletConnect       # Privy integration
+├── hooks/
+│   ├── useVoxelFi          # Main protocol hook
+│   ├── useMovementWallet   # Privy + Movement
+│   └── useZKProof          # Client-side proofs
+└── services/
+    └── aptos.ts            # Contract bindings
+```
+
+### ZK Circuits (Circom/Groth16)
+
+```
+zk/
+├── circuits/
+│   ├── ownership.circom    # Prove NFT ownership privately
+│   └── range_proof.circom  # Prove value in range
+└── handler/
+    ├── poseidon.ts         # Hash commitments
+    └── ownership.ts        # Generate proofs
+```
+
+---
+
+## Quick Start for Local Setup
+
+### Prerequisites
+- Node.js 18+
+- Movement CLI (for contract deployment)
+
+### Run Frontend
 ```bash
 npm install
 npm run dev
 ```
 
-### Backend API
+### Deploy Contracts
 ```bash
-cd api
-npm install
-npm run dev
+cd fractal_tree
+movement init --profile <profile_name>
+movement move publish --profile <profile_name>
 ```
+Update address in Move.toml and config.sh ( also the profile in config.sh )
+Then run the testing scripts
 
-### Environment Variables
-```
-# Frontend
-VITE_PRIVY_APP_ID=your_privy_app_id
-VITE_MOVEMENT_RPC_URL=https://testnet.movementnetwork.xyz/v1
-VITE_MOVEMENT_CHAIN_ID=250
-VITE_MODULE_ADDRESS=your_module_address
-VITE_API_URL=http://localhost:8080
-
-# Backend
-MOVEMENT_RPC=https://testnet.movementnetwork.xyz/v1
-MODULE_ADDRESS=your_module_address
+### Environment
+```env
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
 ```
 
 ---
 
-## 💡 User Experience
+## Hackathon Tracks
 
-**Step 1: Login (10 seconds)**
-- Click "Connect with Privy"
-- Enter email or login with Google/Twitter
-- Embedded wallet created automatically
-- No seed phrases, no extensions, no friction
+### Best New Defi App or Defi built on top of existing Movement Protocols
+### Best App on Movement Using Privy Wallets
+### The People's Choice
+---
+## PRIVY implementation
 
-**Step 2: Design Fractal (30 seconds)**
-- Drag slider: Liquidity amount (e.g., 1 ETH + 2000 USDC)
-- Adjust center price (where you think market will trade)
-- Set spread width (±10% for stable, ±50% for volatile)
-- Choose fractal depth (3-10 levels of recursion)
-- See real-time preview of your curve
-
-**Step 3: Deploy Private Position (15 seconds)**
-- Click "Generate ZK Proof" (happens in browser)
-- Click "Deploy Position"
-- Sign with embedded wallet (no popup, seamless)
-- Position live on Movement in 2 seconds
-
-**Total time: Under 1 minute from zero to earning fees privately.**
+| Feature               | Implementation                  |
+|-----------------------|---------------------------------|
+| Social Login          | Google, Twitter, Discord, Email |
+| Instant Wallets       | No seed phrases needed          |
+| Seamless Signing      | No popup interruptions          |
+| 60-Second Demo        | Complete onboarding flow        |
+| Session Keys          | Pre-approved trading sessions   |
+| Transaction Batching  | Multi-step operations           |
 
 ---
 
-## 🎨 Fractal Types
+## Deployment
 
-### 📊 Market Maker (Fibonacci)
-- Golden ratio decay (61.8% per level)
-- Dense liquidity at current price
-- **Best for:** Stable pairs, high-volume trading
+### Current Testnet
 
-### 🌊 Volatility Hedge (Cantor Dust)  
-- Sparse at center, dense at extremes
-- Captures flash crashes and pumps
-- **Best for:** Volatile assets, black swan coverage
-
-### ⚡ High-Frequency (Mandelbrot)
-- Chaotic attractor pattern
-- Multiple liquidity hotspots
-- **Best for:** Algo traders, MEV extractors
+| Component | Value |
+|-----------|-------|
+| Network | Movement Testnet |
+| RPC | `https://testnet.movementnetwork.xyz/v1` |
+| Chain ID | 250 |
+| Module | `0x1bb2b78e8e8d931a01789f0ab59e2a75f1eaa9838eeabb184a75a653f1c129da` |
 
 ---
 
-## 🏗️ Technical Architecture
+## What Makes VoxelFi Different?
 
-**Smart Contracts (Movement Network)**
-- `fractal_position.move` — Core position manager, NFT minting
-- `vault.move` — Token custody, fee collection
-- `zk_verifier.move` — ZK proof verification on-chain
-
-**ZK Circuits (Circom)**
-- Proves fractal parameters are valid
-- Proves liquidity amount matches deposit
-- Proves user owns position (for withdrawals)
-
-**Frontend (React + Vite + Privy)**
-- Embedded wallet integration
-- Real-time fractal visualization
-- ZK proof generation in browser
-- Position management dashboard
-
-**Backend API (Express.js)**
-- Position queries and management
-- Liquidity calculations
-- ZK proof coordination
+| Feature | Traditional AMM | VoxelFi |
+|---------|----------------|---------|
+| Position representation | Abstract numbers | **3D spatial voxels** |
+| Position ownership | Wallet-locked | **Tradable NFTs** |
+| Position management | All or nothing | **Fracture into pieces** |
+| Privacy | Fully public | **ZK proofs** |
+| Onboarding | Wallet extension | **Social login** |
+| Visualization | Tables & charts | **Interactive 3D universe** |
 
 ---
 
-## 🌟 Why Movement + Privy?
+## Roadmap
 
-### Movement Network
-- **Move Language** — Formal verification prevents exploits
-- **Sub-$0.001 Fees** — Makes complex fractal math economical  
-- **2-Second Finality** — Fast enough for active trading
-
-### Privy Integration
-- **No Seed Phrases** — 80% of users lose/forget them
-- **Social Login** — Email, Google, Twitter, GitHub
-- **Embedded Wallets** — Sign transactions without popups
-
----
-
-## 📊 Competitive Advantage
-
-| Feature | Uniswap V3 | Ambient | **VoxelFi** |
-|---------|------------|---------|-------------|
-| Multi-range positions | ❌ Manual | ✅ Automated | ✅ **Fractal** |
-| Privacy | ❌ None | ❌ None | ✅ **ZK Proofs** |
-| Gas per position | 200K | 150K | **80K** |
-| Onboarding UX | Metamask | Metamask | **Email login** |
-| Capital efficiency | Medium | High | **Extreme** |
+- [x] Core smart contracts
+- [x] Spatial octree indexing
+- [x] Position NFT system
+- [x] Fee distribution mechanism
+- [x] ZK circuits (ownership, range proofs)
+- [x] Privy integration
+- [x] 3D visualization dashboard
+- [x] 60-second onboarding flow
+- [ ] NFT fracturing UI
+- [ ] Position NFT marketplace
+- [ ] Mainnet deployment
 
 ---
 
-## VoxelFi
+## Documentation
 
-*Where mathematics meets privacy.*  
-*Built on Movement. Powered by Privy.*
+- [Architecture](docs/ARCHITECTURE.md) - Complete design overview
+- [Fee Structure](docs/FEE_STRUCTURE.md) - Detailed fee documentation
+- [ZK Docs](zk/README.md) - ZK documentation
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details
+
+---
+
+## **VoxelFi** — *Fractal Liquidity Protocol*
+*Built on Movement Network. Powered by Privy Wallets*
