@@ -30,13 +30,13 @@ VoxelFi reimagines DeFi liquidity as a **3D spatial experience**. Instead of abs
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Core Innovation: Position NFTs
+### Core Innovation: Fractal Liquidity
 
-Every liquidity position is minted as a **tradable NFT** that:
-- Lives in a **3D spatial index** (price × volatility × depth)
-- Can be **fractured** into smaller child NFTs
-- Earns **swap fees** proportionally
-- Supports **ZK privacy proofs**
+VoxelFi introduces **fractal liquidity curves**—self-similar mathematical patterns that provide infinite price coverage with capital efficiency. Unlike traditional concentrated liquidity:
+- **Fractal curves** recursively subdivide price ranges, ensuring liquidity at every scale
+- **Private parameters** are proven valid via ZK-SNARKs without revealing your strategy
+- **Spatial indexing** enables O(1) liquidity lookups during swaps
+- **Position NFTs** represent ownership of your unique fractal configuration
 
 ---
 
