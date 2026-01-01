@@ -6,11 +6,12 @@ module fractal_tree::fractal_position {
     use aptos_framework::coin;
     use aptos_framework::table::{Self, Table};
     use aptos_framework::object::{Self, Object};
+    use aptos_framework::account::{Self, SignerCapability};
     use aptos_token_objects::aptos_token::{Self, AptosToken};
     use fractal_tree::vault;
     use fractal_tree::spatial_octree;
     use fractal_tree::volatility_oracle;
-    
+
     friend fractal_tree::fee_distributor;
     
     const E_NOT_AUTHORIZED: u64 = 3;
@@ -69,7 +70,15 @@ module fractal_tree::fractal_position {
     struct PositionRegistry has key {
         active_positions: vector<address>,
     }
-    
+
+    /// Resource account capability for minting NFTs
+    struct MinterCapability has key {
+        signer_cap: SignerCapability,
+        resource_address: address,
+    }
+
+    const RESOURCE_SEED: vector<u8> = b"voxel_nft_minter";
+
     #[event]
     struct PositionMinted has drop, store {
         position_id: u64,
@@ -143,16 +152,38 @@ module fractal_tree::fractal_position {
         };
     }
     
+    /// Initialize the NFT minter resource account and collection
+    /// This creates a resource account that owns the collection and can mint NFTs
+    public entry fun init_minter(deployer: &signer) {
+        assert!(signer::address_of(deployer) == @fractal_tree, E_NOT_AUTHORIZED);
+
+        if (!exists<MinterCapability>(@fractal_tree)) {
+            // Create resource account for NFT minting
+            let (resource_signer, signer_cap) = account::create_resource_account(deployer, RESOURCE_SEED);
+            let resource_address = signer::address_of(&resource_signer);
+
+            // Create the NFT collection under the resource account
+            aptos_token::create_collection(
+                &resource_signer,
+                string::utf8(b"NFTs representing structured liquidity positions."),
+                10000000,
+                string::utf8(COLLECTION_NAME),
+                string::utf8(b"https://voxel-fi/collection"),
+                false, false, false, false, true, false, false, false, false,
+                0, 100
+            );
+
+            // Store the signer capability
+            move_to(deployer, MinterCapability {
+                signer_cap,
+                resource_address,
+            });
+        };
+    }
+
+    /// Legacy init_collection - now calls init_minter
     public entry fun init_collection(deployer: &signer) {
-        aptos_token::create_collection(
-            deployer,
-            string::utf8(b"NFTs representing structured liquidity positions."),
-            10000000,
-            string::utf8(COLLECTION_NAME),
-            string::utf8(b"https://voxel-fi/collection"),
-            false, false, false, false, true, false, false, false, false,
-            0, 100
-        );
+        init_minter(deployer);
     }
     
     // ===== FEE DISTRIBUTION =====
@@ -338,7 +369,7 @@ module fractal_tree::fractal_position {
         spread: u64,
         fractal_type: u8,
         depth: u8,
-    ) acquires PositionCounter, PositionDataStore, FeeAccumulator, PositionRegistry {
+    ) acquires PositionCounter, PositionDataStore, FeeAccumulator, PositionRegistry, MinterCapability {
         // Input validation
         assert!(amount_x > 0 || amount_y > 0, E_ZERO_LIQUIDITY);
         assert!(price_center > 0, E_INVALID_PRICE);
@@ -360,25 +391,34 @@ module fractal_tree::fractal_position {
         );
         
         // Add to spatial index
-        let price_bucket = (price_center / 10) as u16;
+        // Scale price_center (6 decimals) to fit in u16 bucket
+        // Divide by 10000000 to get ~$10 per bucket (supports prices up to ~$655k)
+        let price_bucket = (price_center / 10000000) as u16;
         let vol_bucket = volatility_oracle::get_current_volatility_bucket<X, Y>();
         let depth_bucket = if (depth > 3) { 3 } else { depth };
         spatial_octree::insert(price_bucket, vol_bucket, depth_bucket, total_liquidity);
         
-        // Create NFT
+        // Create NFT using the resource account (which owns the collection)
         let token_name = string::utf8(b"Voxel position #");
         string::append(&mut token_name, u64_to_string(position_id));
-        
+
+        // Get the minter resource account signer
+        let minter_cap = borrow_global<MinterCapability>(@fractal_tree);
+        let minter_signer = account::create_signer_with_capability(&minter_cap.signer_cap);
+
         let token_obj: Object<AptosToken> = aptos_token::mint_token_object(
-            owner,
+            &minter_signer,
             string::utf8(COLLECTION_NAME),
             string::utf8(b"A Voxel Finance LP Position"),
             token_name,
             string::utf8(b"https://voxel.finance/token/"),
             vector[], vector[], vector[],
         );
-        
+
         let token_addr = object::object_address(&token_obj);
+
+        // Transfer the NFT to the user
+        object::transfer(&minter_signer, token_obj, owner_addr);
         
         // Store position data with current checkpoint
         let data_store = borrow_global_mut<PositionDataStore>(@fractal_tree);
@@ -485,7 +525,8 @@ module fractal_tree::fractal_position {
         };
         
         // Remove from spatial index
-        let price_bucket = (position_data.price_center / 10) as u16;
+        // Must use same scaling as insert (10000000)
+        let price_bucket = (position_data.price_center / 10000000) as u16;
         let vol_bucket = position_data.volatility_bucket;
         let depth_bucket = if (position_data.depth > 3) { 3 } else { position_data.depth };
         spatial_octree::remove(price_bucket, vol_bucket, depth_bucket, position_data.total_liquidity);

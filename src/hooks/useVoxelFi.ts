@@ -10,12 +10,15 @@ import {
   buildClaimFeesPayload,
   buildSwapPayload,
   buildSwapYForXPayload,
+  buildRegisterWethPayload,
+  buildRegisterUsdcPayload,
   getPositionData,
   getUnclaimedFees,
   getReserves,
   getSwapQuote,
   getCurrentMarketPrice,
   parsePositionMintedEvent,
+  getTokenBalances as fetchTokenBalances,
   PositionData,
   SwapQuote,
 } from '@/services/aptos';
@@ -48,6 +51,9 @@ export interface UseVoxelFiReturn {
   login: () => void;
   logout: () => Promise<void>;
 
+  // Setup operations (register coin stores)
+  registerTokens: () => Promise<TransactionResult>;
+
   // Position operations
   mintPosition: (params: MintPositionParams) => Promise<TransactionResult>;
   burnPosition: (tokenAddress: string) => Promise<TransactionResult>;
@@ -62,6 +68,7 @@ export interface UseVoxelFiReturn {
   getMarketPrice: () => Promise<number>;
   getVaultReserves: () => Promise<{ reserveX: number; reserveY: number }>;
   getPositionFees: (tokenAddress: string) => Promise<{ feesX: number; feesY: number }>;
+  getTokenBalances: () => Promise<{ weth: number; usdc: number }>;
 
   // Stored positions
   storedPositions: StoredPosition[];
@@ -156,6 +163,28 @@ export function useVoxelFi(): UseVoxelFiReturn {
     },
     [isConnected, signAndSubmitTransaction]
   );
+
+  // Register token coin stores (must be called before receiving tokens)
+  const registerTokens = useCallback(async (): Promise<TransactionResult> => {
+    // Register WETH first
+    const wethResult = await executeTransaction(buildRegisterWethPayload());
+    if (!wethResult.success) {
+      // If it fails with "already registered" that's fine, continue
+      if (!wethResult.error?.includes('ECOIN_STORE_ALREADY_PUBLISHED')) {
+        return wethResult;
+      }
+    }
+
+    // Register USDC
+    const usdcResult = await executeTransaction(buildRegisterUsdcPayload());
+    if (!usdcResult.success) {
+      if (!usdcResult.error?.includes('ECOIN_STORE_ALREADY_PUBLISHED')) {
+        return usdcResult;
+      }
+    }
+
+    return { success: true };
+  }, [executeTransaction]);
 
   // Mint position
   const mintPosition = useCallback(
@@ -253,6 +282,11 @@ export function useVoxelFi(): UseVoxelFiReturn {
     return getUnclaimedFees(tokenAddress, marketPrice);
   }, []);
 
+  const getTokenBalances = useCallback(async () => {
+    if (!address) return { weth: 0, usdc: 0 };
+    return fetchTokenBalances(address);
+  }, [address]);
+
   const refreshPositions = useCallback(async () => {
     console.log('Refreshing positions...');
   }, []);
@@ -271,6 +305,9 @@ export function useVoxelFi(): UseVoxelFiReturn {
     login,
     logout,
 
+    // Setup operations
+    registerTokens,
+
     // Position operations
     mintPosition,
     burnPosition,
@@ -285,6 +322,7 @@ export function useVoxelFi(): UseVoxelFiReturn {
     getMarketPrice,
     getVaultReserves,
     getPositionFees,
+    getTokenBalances,
 
     // Stored positions
     storedPositions,

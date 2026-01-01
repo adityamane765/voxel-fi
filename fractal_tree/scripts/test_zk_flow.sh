@@ -23,8 +23,7 @@ echo "→ Fetching position data from NFT..."
 POSITION_DATA=$(movement move view --assume-yes \
   --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::fractal_position::get_position_data \
-  --args address:$TOKEN_OBJECT_ADDRESS \
-  --assume-yes)
+  --args address:$TOKEN_OBJECT_ADDRESS)
 echo "$POSITION_DATA"
 
 # Extract position_id from the returned data (first field in the struct)

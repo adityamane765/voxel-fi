@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Scale, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Scale, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
 import { useZKProof, RangeProofResult } from '@/hooks/useZKProof';
 import { ProofResult } from './ProofResult';
 
@@ -14,12 +14,26 @@ const PRESET_RANGES = [
   { label: 'Small (>$1k)', min: 1000, max: 10000000 },
 ];
 
-export function RangeProofCard() {
+interface RangeProofCardProps {
+  /** If provided, auto-populates the value from position data */
+  positionValue?: number;
+  /** If true, the value input is disabled and shows as secured */
+  valueFromPosition?: boolean;
+}
+
+export function RangeProofCard({ positionValue, valueFromPosition = false }: RangeProofCardProps = {}) {
   const { generateRangeProof, isGenerating } = useZKProof();
 
   const [value, setValue] = useState('');
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
+
+  // Auto-populate value from position if provided
+  useEffect(() => {
+    if (positionValue !== undefined) {
+      setValue(positionValue.toString());
+    }
+  }, [positionValue]);
   const [showValue, setShowValue] = useState(false);
   const [result, setResult] = useState<RangeProofResult | null>(null);
 
@@ -108,33 +122,52 @@ export function RangeProofCard() {
         <label className="block text-xs text-gray-500 uppercase tracking-widest mb-2">
           Your Value <span className="text-gray-600">(kept private)</span>
         </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            $
-          </span>
-          <input
-            type={showValue ? 'text' : 'password'}
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setResult(null);
-            }}
-            placeholder="Enter your actual value"
-            className="w-full pl-8 pr-12 py-3 bg-black border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-white/30"
-          />
-          <button
-            onClick={() => setShowValue(!showValue)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
-          >
-            {showValue ? (
-              <EyeOff className="w-4 h-4" />
-            ) : (
-              <Eye className="w-4 h-4" />
-            )}
-          </button>
-        </div>
+        {valueFromPosition ? (
+          // When value comes from position, show secured display
+          <div className="relative">
+            <div className="w-full pl-8 pr-12 py-3 bg-black border border-green-500/30 rounded-xl text-white flex items-center">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
+                $
+              </span>
+              <span className="text-green-400">••••••••</span>
+              <span className="ml-2 text-xs text-green-400/70">(from your position)</span>
+            </div>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Lock className="w-4 h-4 text-green-400" />
+            </div>
+          </div>
+        ) : (
+          // Manual input when no position value provided
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
+              $
+            </span>
+            <input
+              type={showValue ? 'text' : 'password'}
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setResult(null);
+              }}
+              placeholder="Enter your actual value"
+              className="w-full pl-8 pr-12 py-3 bg-black border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-white/30"
+            />
+            <button
+              onClick={() => setShowValue(!showValue)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+            >
+              {showValue ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        )}
         <p className="text-xs text-gray-600 mt-1">
-          This value is never sent to the blockchain or revealed in the proof
+          {valueFromPosition
+            ? 'Value automatically fetched from your on-chain position'
+            : 'This value is never sent to the blockchain or revealed in the proof'}
         </p>
       </div>
 

@@ -1,7 +1,5 @@
 /node_modules
 /coverage
-/zk/build_ow
-/zk/build_rp
 
 # next.js
 /.next/
@@ -16,10 +14,11 @@ npm-debug.log*
 .env*
 .vercel
 *.tsbuildinfo
-
 next-env.d.ts
 
+plan2.md
 setup.md
-/backup
-zk/build_rp
-zk/build_ow
+/zk/node_modules
+/zk/build_ow
+/zk/build_rp
+

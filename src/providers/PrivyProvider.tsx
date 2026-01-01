@@ -3,6 +3,15 @@
 import { PrivyProvider as Privy } from '@privy-io/react-auth';
 import { config } from '@/config';
 
+/**
+ * Privy Provider configured for Movement Network
+ *
+ * Features:
+ * - Social login (email, Google, Twitter, Discord)
+ * - Aptos embedded wallet creation (works on Movement)
+ * - Automatic wallet creation on login
+ * - No seed phrase, no wallet extension needed
+ */
 export default function PrivyProvider({
   children,
 }: {
@@ -20,9 +29,14 @@ export default function PrivyProvider({
         },
         // Social login methods - key for smooth onboarding
         loginMethods: ['email', 'google', 'twitter', 'discord'],
-        // Embedded wallets configuration
+        // Embedded wallets configuration for Movement (Aptos-compatible)
         embeddedWallets: {
-          // Show wallet UI after login for first-time users
+          ethereum: {
+            createOnLogin: 'users-without-wallets',
+          },
+          solana: {
+            createOnLogin: 'users-without-wallets',
+          },
           showWalletUIs: true,
         },
         // Legal/compliance

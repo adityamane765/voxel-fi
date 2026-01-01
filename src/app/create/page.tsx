@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Info,
@@ -37,6 +37,8 @@ export default function CreatePositionPage() {
     isLoading: walletLoading,
     login,
     mintPosition,
+    registerTokens,
+    getTokenBalances,
   } = useVoxelFi();
 
   const {
@@ -79,6 +81,49 @@ export default function CreatePositionPage() {
   const [nftAddress, setNftAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [commitmentHash, setCommitmentHash] = useState<string | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [tokensRegistered, setTokensRegistered] = useState(false);
+  const [balances, setBalances] = useState({ weth: 0, usdc: 0 });
+  const [balancesLoading, setBalancesLoading] = useState(false);
+
+  // Fetch balances when connected or after registration
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (isConnected && address) {
+        setBalancesLoading(true);
+        try {
+          const bal = await getTokenBalances();
+          setBalances(bal);
+          // If we successfully got balances, tokens are registered
+          if (bal.weth > 0 || bal.usdc > 0) {
+            setTokensRegistered(true);
+          }
+        } catch (err) {
+          console.error('Failed to fetch balances:', err);
+        } finally {
+          setBalancesLoading(false);
+        }
+      }
+    };
+    fetchBalances();
+  }, [isConnected, address, getTokenBalances, tokensRegistered]);
+
+  const handleRegisterTokens = async () => {
+    setIsRegistering(true);
+    setError(null);
+    try {
+      const result = await registerTokens();
+      if (result.success) {
+        setTokensRegistered(true);
+      } else {
+        setError(result.error || 'Failed to register tokens');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to register tokens');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
 
   const handleCreatePosition = async () => {
@@ -176,6 +221,45 @@ export default function CreatePositionPage() {
               commitments are stored on-chain.
             </p>
           </motion.div>
+
+          {/* Wallet Setup Banner - Show if connected but tokens not registered */}
+          {isConnected && !tokensRegistered && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-400" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-400">Setup Required</p>
+                    <p className="text-xs text-yellow-400/70">Register token stores to receive WETH & USDC</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleRegisterTokens}
+                  disabled={isRegistering}
+                  className="px-4 py-2 bg-yellow-500 text-black rounded-lg text-sm font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isRegistering ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Registering...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="w-4 h-4" />
+                      Setup Wallet
+                    </>
+                  )}
+                </button>
+              </div>
+              {error && (
+                <p className="text-xs text-red-400 mt-2">{error}</p>
+              )}
+            </motion.div>
+          )}
 
           {/* Progress Steps */}
           <motion.div
@@ -318,7 +402,9 @@ export default function CreatePositionPage() {
                       <div className="bg-white/[0.02] rounded-xl p-4">
                         <div className="flex justify-between mb-2">
                           <span className="text-sm text-gray-500">{tokenX.symbol}</span>
-                          <span className="text-sm text-gray-500">Balance: 10.5</span>
+                          <span className="text-sm text-gray-500">
+                            Balance: {balancesLoading ? '...' : (balances.weth / Math.pow(10, tokenX.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                          </span>
                         </div>
                         <input
                           type="number"
@@ -331,7 +417,9 @@ export default function CreatePositionPage() {
                       <div className="bg-white/[0.02] rounded-xl p-4">
                         <div className="flex justify-between mb-2">
                           <span className="text-sm text-gray-500">{tokenY.symbol}</span>
-                          <span className="text-sm text-gray-500">Balance: 5,000</span>
+                          <span className="text-sm text-gray-500">
+                            Balance: {balancesLoading ? '...' : (balances.usdc / Math.pow(10, tokenY.decimals)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </span>
                         </div>
                         <input
                           type="number"
@@ -437,41 +525,79 @@ export default function CreatePositionPage() {
                   </div>
 
                   {/* Price Center & Spread */}
-                  <div className="mb-8 grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs tracking-widest uppercase text-gray-500 mb-4 block">
-                        Price Center
-                      </label>
-                      <input
-                        type="number"
-                        value={priceCenter}
-                        onChange={(e) => setPriceCenter(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5 outline-none focus:border-white/30 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs tracking-widest uppercase text-gray-500 mb-4 block">
-                        Spread
+                  <div className="mb-8">
+                    <div className="grid grid-cols-2 gap-4 mb-3">
+                      <div>
+                        <label className="text-xs tracking-widest uppercase text-gray-500 mb-2 block">
+                          Price Center (USDC per {tokenX.symbol})
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={priceCenter}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPriceCenter(val);
+                              // Auto-adjust spread if it exceeds price center
+                              if (parseFloat(spread) >= parseFloat(val)) {
+                                setSpread((parseFloat(val) * 0.2).toFixed(0));
+                              }
+                            }}
+                            min="1"
+                            className="w-full px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5 outline-none focus:border-white/30 transition-colors"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">USDC</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs tracking-widest uppercase text-gray-500 mb-2 block">
+                          Spread (± USDC)
+                          {spreadMultiplier > 1 && (
+                            <button
+                              onClick={() => setSpread((parseFloat(spread) * spreadMultiplier).toFixed(0))}
+                              className="ml-2 text-xs text-white/60 hover:text-white underline"
+                            >
+                              Apply {spreadMultiplier}x
+                            </button>
+                          )}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={spread}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              const maxSpread = parseFloat(priceCenter) * 0.9; // Max 90% of price center
+                              if (val <= maxSpread) {
+                                setSpread(e.target.value);
+                              } else {
+                                setSpread(maxSpread.toFixed(0));
+                              }
+                            }}
+                            min="1"
+                            max={parseFloat(priceCenter) * 0.9}
+                            className="w-full px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5 outline-none focus:border-white/30 transition-colors"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">USDC</span>
+                        </div>
                         {spreadMultiplier > 1 && (
-                          <button
-                            onClick={() => setSpread((parseFloat(spread) * spreadMultiplier).toFixed(0))}
-                            className="ml-2 text-xs text-white/60 hover:text-white underline"
-                          >
-                            Apply {spreadMultiplier}x
-                          </button>
+                          <p className="text-xs text-yellow-400/80 mt-1">
+                            {spreadRecommendation}
+                          </p>
                         )}
-                      </label>
-                      <input
-                        type="number"
-                        value={spread}
-                        onChange={(e) => setSpread(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5 outline-none focus:border-white/30 transition-colors"
-                      />
-                      {spreadMultiplier > 1 && (
-                        <p className="text-xs text-yellow-400/80 mt-1">
-                          {spreadRecommendation}
-                        </p>
-                      )}
+                      </div>
+                    </div>
+                    {/* Price Range Display */}
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Active Price Range:</span>
+                        <span className="text-white font-medium">
+                          ${(parseFloat(priceCenter) - parseFloat(spread)).toLocaleString()} — ${(parseFloat(priceCenter) + parseFloat(spread)).toLocaleString()} USDC
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Your liquidity earns fees when {tokenX.symbol} price is within this range
+                      </p>
                     </div>
                   </div>
 

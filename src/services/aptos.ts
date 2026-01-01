@@ -44,6 +44,53 @@ export interface SwapQuote {
 // ==================== VIEW FUNCTIONS ====================
 
 /**
+ * Get WETH balance for an address
+ */
+export async function getWethBalance(address: string): Promise<number> {
+  try {
+    const payload: InputViewFunctionData = {
+      function: `${config.moduleAddress}::weth::balance`,
+      functionArguments: [address],
+    };
+    const result = await aptos.view({ payload });
+    return Number(result[0]);
+  } catch (error) {
+    // Account might not have registered the coin store yet
+    console.log('Failed to get WETH balance:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get USDC balance for an address
+ */
+export async function getUsdcBalance(address: string): Promise<number> {
+  try {
+    const payload: InputViewFunctionData = {
+      function: `${config.moduleAddress}::usdc::balance`,
+      functionArguments: [address],
+    };
+    const result = await aptos.view({ payload });
+    return Number(result[0]);
+  } catch (error) {
+    // Account might not have registered the coin store yet
+    console.log('Failed to get USDC balance:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get both token balances for an address
+ */
+export async function getTokenBalances(address: string): Promise<{ weth: number; usdc: number }> {
+  const [weth, usdc] = await Promise.all([
+    getWethBalance(address),
+    getUsdcBalance(address),
+  ]);
+  return { weth, usdc };
+}
+
+/**
  * Get position data by NFT token address
  */
 export async function getPositionData(tokenAddr: string): Promise<PositionData | null> {
@@ -209,6 +256,50 @@ export async function getLiquidityAtPrice(tokenAddr: string, price: number): Pro
 }
 
 // ==================== TRANSACTION PAYLOADS ====================
+
+/**
+ * Build register WETH coin store transaction payload
+ */
+export function buildRegisterWethPayload(): InputEntryFunctionData {
+  return {
+    function: `${config.moduleAddress}::weth::register`,
+    typeArguments: [],
+    functionArguments: [],
+  };
+}
+
+/**
+ * Build register USDC coin store transaction payload
+ */
+export function buildRegisterUsdcPayload(): InputEntryFunctionData {
+  return {
+    function: `${config.moduleAddress}::usdc::register`,
+    typeArguments: [],
+    functionArguments: [],
+  };
+}
+
+/**
+ * Build faucet WETH transaction payload (mint test tokens)
+ */
+export function buildFaucetWethPayload(amount: number): InputEntryFunctionData {
+  return {
+    function: `${config.moduleAddress}::weth::faucet`,
+    typeArguments: [],
+    functionArguments: [amount.toString()],
+  };
+}
+
+/**
+ * Build faucet USDC transaction payload (mint test tokens)
+ */
+export function buildFaucetUsdcPayload(amount: number): InputEntryFunctionData {
+  return {
+    function: `${config.moduleAddress}::usdc::faucet`,
+    typeArguments: [],
+    functionArguments: [amount.toString()],
+  };
+}
 
 /**
  * Build mint position transaction payload

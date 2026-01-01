@@ -1,8 +1,18 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { Aptos, AptosConfig, Network, InputEntryFunctionData } from '@aptos-labs/ts-sdk';
+import { usePrivy } from '@privy-io/react-auth';
+import { useSignRawHash, useCreateWallet } from '@privy-io/react-auth/extended-chains';
+import {
+  Aptos,
+  AptosConfig,
+  Network,
+  InputEntryFunctionData,
+  generateSigningMessageForTransaction,
+  AccountAuthenticatorEd25519,
+  Ed25519PublicKey,
+  Ed25519Signature,
+} from '@aptos-labs/ts-sdk';
 import { config } from '@/config';
 
 // Initialize Aptos client for Movement
@@ -12,11 +22,18 @@ const aptosConfig = new AptosConfig({
 });
 const aptos = new Aptos(aptosConfig);
 
+// Helper to convert Uint8Array to hex
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export interface WalletState {
   isAuthenticated: boolean;
   isLoading: boolean;
   address: string | null;
-  walletType: 'embedded' | 'external' | null;
+  publicKey: string | null;
   user: {
     email?: string;
     google?: { email: string };
@@ -38,6 +55,7 @@ export interface UseMovementWalletReturn {
   isLoading: boolean;
   isConnected: boolean;
   address: string | null;
+  publicKey: string | null;
   user: WalletState['user'];
 
   // Auth actions
@@ -56,67 +74,77 @@ export interface UseMovementWalletReturn {
 /**
  * Custom hook for Movement Network wallet integration with Privy
  *
- * This hook provides:
- * - Social login (email, Google, Twitter, Discord)
- * - Automatic embedded wallet creation
- * - Transaction signing and submission to Movement
- * - Seamless UX without wallet extensions
+ * Uses the pattern from: https://github.com/Rahat-ch/fucks-or-sucks
+ * - Finds Aptos wallet from user.linkedAccounts
+ * - Uses signRawHash for transaction signing
+ * - Direct submission to Movement testnet
  */
 export function useMovementWallet(): UseMovementWalletReturn {
   const { ready, authenticated, user, login, logout: privyLogout } = usePrivy();
-  const { wallets } = useWallets();
+  const { signRawHash } = useSignRawHash();
+  const { createWallet } = useCreateWallet();
 
   const [isLoading, setIsLoading] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
-  const [embeddedWallet, setEmbeddedWallet] = useState<any>(null);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
-  // Find the embedded wallet
+  // Find or create the Aptos wallet from linked accounts (works for Movement)
   useEffect(() => {
-    if (authenticated && wallets.length > 0) {
-      // Look for Privy embedded wallet (first one is usually embedded)
-      const wallet = wallets.find((w) => w.walletClientType === 'privy');
+    const findOrCreateWallet = async () => {
+      if (authenticated && user?.linkedAccounts) {
+        // Find the Aptos wallet - Movement uses Aptos wallet type
+        const aptosWallet = user.linkedAccounts.find(
+          (account: any) => account.chainType === 'aptos'
+        );
 
-      if (wallet) {
-        setEmbeddedWallet(wallet);
-        // For Aptos/Movement, we need to derive or get the address
-        // The wallet object structure may vary based on Privy version
-        const walletAddress = (wallet as any).address;
-        if (walletAddress) {
-          setAddress(walletAddress);
+        if (aptosWallet) {
+          setAddress((aptosWallet as any).address || null);
+          setPublicKey((aptosWallet as any).publicKey || null);
+        } else if (!isCreatingWallet) {
+          // No Aptos wallet found, create one
+          setIsCreatingWallet(true);
+          try {
+            console.log('Creating Aptos wallet for Movement...');
+            const result = await createWallet({ chainType: 'aptos' });
+            if (result?.wallet) {
+              setAddress(result.wallet.address || null);
+              setPublicKey((result.wallet as any).publicKey || null);
+              console.log('Aptos wallet created:', result.wallet.address);
+            }
+          } catch (error) {
+            console.error('Failed to create Aptos wallet:', error);
+          } finally {
+            setIsCreatingWallet(false);
+          }
         }
-      } else if (wallets.length > 0) {
-        // Fallback to first wallet
-        const firstWallet = wallets[0];
-        setEmbeddedWallet(firstWallet);
-        const walletAddress = (firstWallet as any).address;
-        if (walletAddress) {
-          setAddress(walletAddress);
-        }
+      } else {
+        setAddress(null);
+        setPublicKey(null);
       }
-    } else {
-      setEmbeddedWallet(null);
-      setAddress(null);
-    }
-  }, [authenticated, wallets]);
+    };
+
+    findOrCreateWallet();
+  }, [authenticated, user?.linkedAccounts, createWallet, isCreatingWallet]);
 
   // Logout
   const logout = useCallback(async () => {
     await privyLogout();
     setAddress(null);
-    setEmbeddedWallet(null);
+    setPublicKey(null);
   }, [privyLogout]);
 
   // Sign and submit transaction to Movement
   const signAndSubmitTransaction = useCallback(
     async (payload: InputEntryFunctionData): Promise<TransactionResult> => {
-      if (!embeddedWallet || !address) {
+      if (!address || !publicKey) {
         return { success: false, error: 'Wallet not connected' };
       }
 
       setIsLoading(true);
       try {
         // Build the transaction
-        const transaction = await aptos.transaction.build.simple({
+        const rawTxn = await aptos.transaction.build.simple({
           sender: address,
           data: {
             function: payload.function as `${string}::${string}::${string}`,
@@ -125,20 +153,42 @@ export function useMovementWallet(): UseMovementWalletReturn {
           },
         });
 
-        // Sign with Privy embedded wallet
-        // Note: The exact signing method depends on Privy's Aptos support
-        let signedTx;
-        if (typeof embeddedWallet.signTransaction === 'function') {
-          signedTx = await embeddedWallet.signTransaction(transaction);
-        } else {
-          // Fallback: Try to use the wallet's sign method
-          throw new Error('Wallet does not support transaction signing');
+        // Generate signing message
+        const signingMessage = generateSigningMessageForTransaction(rawTxn);
+
+        // Sign using Privy's signRawHash with the Aptos wallet
+        const signResult = await signRawHash({
+          address,
+          chainType: 'aptos',
+          hash: `0x${toHex(signingMessage)}`,
+        });
+
+        if (!signResult || !signResult.signature) {
+          throw new Error('Failed to sign transaction');
         }
 
-        // Submit to Movement
+        // Clean public key - remove 0x prefix and handle 33-byte keys
+        let cleanPublicKey = publicKey.startsWith('0x') ? publicKey.slice(2) : publicKey;
+        if (cleanPublicKey.length === 66) {
+          // 33 bytes = 66 hex chars, strip first byte
+          cleanPublicKey = cleanPublicKey.slice(2);
+        }
+
+        // Clean signature - remove 0x prefix if present
+        const cleanSignature = signResult.signature.startsWith('0x')
+          ? signResult.signature.slice(2)
+          : signResult.signature;
+
+        // Create authenticator
+        const senderAuthenticator = new AccountAuthenticatorEd25519(
+          new Ed25519PublicKey(cleanPublicKey),
+          new Ed25519Signature(cleanSignature)
+        );
+
+        // Submit transaction
         const pendingTx = await aptos.transaction.submit.simple({
-          transaction,
-          senderAuthenticator: signedTx,
+          transaction: rawTxn,
+          senderAuthenticator,
         });
 
         // Wait for confirmation
@@ -153,18 +203,28 @@ export function useMovementWallet(): UseMovementWalletReturn {
         setIsLoading(false);
       }
     },
-    [embeddedWallet, address]
+    [address, publicKey, signRawHash]
   );
 
-  // Sign message
+  // Sign message using signRawHash
   const signMessage = useCallback(
     async (message: string): Promise<{ signature: string } | null> => {
-      if (!embeddedWallet) return null;
+      if (!address) return null;
 
       try {
-        if (typeof embeddedWallet.signMessage === 'function') {
-          const signature = await embeddedWallet.signMessage({ message });
-          return { signature };
+        // Convert message to hex
+        const encoder = new TextEncoder();
+        const messageBytes = encoder.encode(message);
+        const messageHex = `0x${toHex(messageBytes)}` as `0x${string}`;
+
+        const result = await signRawHash({
+          address,
+          chainType: 'aptos',
+          hash: messageHex,
+        });
+
+        if (result?.signature) {
+          return { signature: result.signature };
         }
         return null;
       } catch (error) {
@@ -172,7 +232,7 @@ export function useMovementWallet(): UseMovementWalletReturn {
         return null;
       }
     },
-    [embeddedWallet]
+    [address, signRawHash]
   );
 
   // Get explorer URL
@@ -204,9 +264,10 @@ export function useMovementWallet(): UseMovementWalletReturn {
     // Auth state
     isAuthenticated: authenticated,
     isReady: ready,
-    isLoading,
+    isLoading: isLoading || isCreatingWallet,
     isConnected,
     address,
+    publicKey,
     user: userInfo,
 
     // Auth actions

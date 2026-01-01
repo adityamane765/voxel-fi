@@ -5,7 +5,12 @@ import { Lock, Info, Shield } from 'lucide-react';
 import { OwnershipProofCard } from './OwnershipProofCard';
 import { RangeProofCard } from './RangeProofCard';
 
-export function PrivacyPanel() {
+interface PrivacyPanelProps {
+  /** Total liquidity value from user's positions (in USD) */
+  totalLiquidityValue?: number;
+}
+
+export function PrivacyPanel({ totalLiquidityValue }: PrivacyPanelProps = {}) {
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -64,7 +69,10 @@ export function PrivacyPanel() {
       {/* Proof Cards Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <OwnershipProofCard />
-        <RangeProofCard />
+        <RangeProofCard
+          positionValue={totalLiquidityValue}
+          valueFromPosition={totalLiquidityValue !== undefined}
+        />
       </div>
 
       {/* Technical Details */}

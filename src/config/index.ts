@@ -22,12 +22,12 @@ export const config = {
   },
 
   // Contract Module Address - Update this after deployment
-  moduleAddress: '0x1bb2b78e8e8d931a01789f0ab59e2a75f1eaa9838eeabb184a75a653f1c129da',
+  moduleAddress: '0x0b7e4b0868b4d7e190fce77a3259694b2168386f6dbdfa0b496270dce4696779',
 
   // Token Addresses
   tokens: {
-    weth: '0x1bb2b78e8e8d931a01789f0ab59e2a75f1eaa9838eeabb184a75a653f1c129da::weth::WETH',
-    usdc: '0x1bb2b78e8e8d931a01789f0ab59e2a75f1eaa9838eeabb184a75a653f1c129da::usdc::USDC',
+    weth: '0x0b7e4b0868b4d7e190fce77a3259694b2168386f6dbdfa0b496270dce4696779::weth::WETH',
+    usdc: '0x0b7e4b0868b4d7e190fce77a3259694b2168386f6dbdfa0b496270dce4696779::usdc::USDC',
   },
 
   // Privy Configuration

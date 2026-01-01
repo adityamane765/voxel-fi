@@ -36,7 +36,7 @@ movement move view \
   --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::dashboard_stats::get_position_stats \
   --type-args $COIN_X $COIN_Y \
-  --args address:$TOKEN_OBJECT_ADDRESS
+  --args address:$TOKEN_OBJECT_ADDRESS u64:$CURRENT_PRICE
 
 echo ""
 echo "┌─────────────────────────────────────────┐"
@@ -48,7 +48,6 @@ movement move view \
   --assume-yes \
   --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::fractal_position::get_unclaimed_fees \
-  --type-args $COIN_X $COIN_Y \
   --args address:$TOKEN_OBJECT_ADDRESS u64:$CURRENT_PRICE
 
 echo ""
@@ -70,7 +69,7 @@ movement move view \
   --profile $PROFILE \
   --function-id ${MODULE_ADDRESS}::dashboard_stats::estimate_position_apr \
   --type-args $COIN_X $COIN_Y \
-  --args address:$TOKEN_OBJECT_ADDRESS u64:7
+  --args address:$TOKEN_OBJECT_ADDRESS u64:$CURRENT_PRICE u64:7
 
 echo ""
 echo "→ Position Health Score (0-100):"
